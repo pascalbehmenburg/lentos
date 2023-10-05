@@ -1,0 +1,12 @@
+[workspace]
+members = ["backend/api", "backend/config", "shared"]
+resolver = "2"
+
+[workspace.package]
+license = "MIT"
+license-file = "LICENSE"
+authors = ["Pascal Behmenburg"]
+
+
+[profile.dev.package.backtrace]
+opt-level = 3

@@ -1,0 +1,51 @@
+[package]
+name = "api"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+authors.workspace = true
+
+
+[dependencies]
+actix-web = { version = "4.3.1", features = ["rustls"] }
+actix-session = "0.8.0"
+actix-identity = "0.6.0"
+actix-rt = "2.3.0"
+
+# database
+sqlx = { version = "0.7.1", default-features = false, features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "macros",
+    "postgres",
+    "uuid",
+    "chrono",
+    "json",
+] }
+tracing = { version = "0.1" }
+color-eyre = { version = "0.6.2", features = ["capture-spantrace"] }
+
+# serde
+serde = "1.0"
+serde_json = "1.0"
+# async
+async-trait = "0.1"
+# shared
+shared = { path = "../../shared", features = ["backend"] }
+
+anyhow = "1.0.44"
+argon2 = { version = "0.5.2", features = ["std"] }
+
+derive_more = "0.99.11"
+
+rand = "0.8.4"
+
+actix-http = "3.4.0"
+bytes = "1.0.1"
+futures-core = "0.3.17"
+reqwest = { version = "0.11.20", features = ["json", "cookies", "rustls-tls"] }
+fake = "2.0.0"
+dotenv = "0.15.0"
+
+[features]
+__compress = []

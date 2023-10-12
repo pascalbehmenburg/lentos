@@ -1,0 +1,38 @@
+[package]
+name = "bootstrap"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+actix-web = { version = "4.3.1", features = ["rustls"] }
+actix-files = "0.6.2"
+actix-session = "0.8.0"
+actix-identity = "0.6.0"
+
+tokio = "1.26.0"
+shuttle-runtime = { version = "0.28.0", default-features = false }
+shuttle-actix-web = "0.28.0"
+shuttle-shared-db = { version = "0.28.0", features = ["postgres-rustls"] }
+shuttle-static-folder = "0.28.0"
+
+sqlx = { version = "0.7.1", default-features = false, features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "macros",
+    "postgres",
+    "uuid",
+    "chrono",
+    "json",
+] }
+app = { path = "../app" }
+# TODO remove this dependency since it is unmaintained
+dotenv = "0.15.0"
+dotenv_codegen = "0.15.0"
+
+shuttle = "0.6.1"
+tracing = { version = "0.1" }
+color-eyre = { version = "0.6.2", features = ["capture-spantrace"] }
+tracing-error = "0.2.0"
+tracing-subscriber = "0.3.17"

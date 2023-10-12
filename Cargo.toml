@@ -1,5 +1,5 @@
 [workspace]
-members = ["backend/api", "backend/config", "shared"]
+members = ["app", "bootstrap", "shared"]
 resolver = "2"
 
 [workspace.package]
@@ -9,4 +9,7 @@ authors = ["Pascal Behmenburg"]
 
 
 [profile.dev.package.backtrace]
+opt-level = 3
+
+[profile.dev.package.askama_derive]
 opt-level = 3

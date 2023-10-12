@@ -18,7 +18,6 @@ Secrets*.toml
 
 # Stores the environment variables
 .env
-api/shuttle/.env
 
 # vs code configurations
 .vscode/
@@ -27,3 +26,6 @@ api/shuttle/.env
 .idea/
 
 *.DS_STORE
+
+app/src/static/tailwind.css
+node_modules/

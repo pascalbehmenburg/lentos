@@ -1,0 +1,18 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  mode: "all",
+  content: [
+    // Include all Rust, HTML, and CSS files in the src directory
+    "./src/**/*.{rs,html,css}",
+    // Include all HTML files in the output (static) directory
+    "./static/**/*.html",
+    // Include all templates
+    "./templates/**/*.html",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [
+    require('tailwindcss-animated')
+  ]
+}

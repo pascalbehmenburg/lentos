@@ -1,2 +1,27 @@
+# Rust language edition to be used by the parser.
+edition = "2021"
+
+# Version of the formatting rules to use.
+version = "Two"
+
+# Line endings will be converted to \n.
+newline_style = "Unix"
+
+wrap_comments = true
+
+# The "Default" setting has a heuristic which splits lines too aggresively.
+# We are willing to revisit this setting in future versions of rustfmt.
+# Bugs:
+# * https://github.com/rust-lang/rustfmt/issues/3119
+# * https://github.com/rust-lang/rustfmt/issues/3120
+use_small_heuristics = "Max"
+
+# Third party code is formatted upstream.
+ignore = ["third_party/rust/**/crate"]
+
+# enforce guidelines by not compiling otherwise
+error_on_line_overflow = true
+error_on_unformatted = true
+
+# some personal preferences
 max_width = 80
-tab_spaces = 2

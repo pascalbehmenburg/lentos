@@ -29,3 +29,11 @@ Secrets*.toml
 
 app/src/static/tailwind.css
 node_modules/
+
+**/*.pem
+
+# cookie persistence file of the frontend client
+frontend/cookies.json
+
+# macos specific shit
+**/*.DS_STORE

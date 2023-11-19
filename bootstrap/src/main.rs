@@ -1,103 +1,124 @@
+use std::io::{BufReader, Error, ErrorKind};
+
 use actix_identity::IdentityMiddleware;
-use actix_session::SessionMiddleware;
+use actix_session::{
+    config::{CookieContentSecurity, PersistentSession},
+    SessionMiddleware,
+};
 use actix_web::{
     cookie::{Key, SameSite},
-    middleware,
-    web::{self, ServiceConfig},
+    middleware::{self, Compat},
+    HttpServer, App,
 };
 
 use app::{
-    controllers::{self, api::health},
-    repository::session::PostgresSessionRepository,
-    repository::{
-        todo::{self, PostgresTodoRepository},
-        user::{self, PostgresUserRepository},
-    },
+    repository::{todo::{self}, user, session::PostgresSessionRepository},
+    controllers::{self},
 };
-use shuttle_actix_web::ShuttleActixWeb;
+use rustls::{ServerConfig, Certificate, PrivateKey};
+use rustls_pemfile::pkcs8_private_keys;
+use sqlx::{Postgres, Pool};
+use tracing::subscriber::set_global_default;
+use tracing_subscriber::Registry;
 
 #[macro_use]
 extern crate dotenv_codegen;
 
 fn install_tracing() {
     use tracing_error::ErrorLayer;
-    use tracing_subscriber::prelude::*;
-    use tracing_subscriber::{fmt, EnvFilter};
+    use tracing_subscriber::{prelude::*, EnvFilter};
+    use tracing_subscriber::fmt;
+    use tracing_log::LogTracer;
+
+    LogTracer::init().expect("Failed to set logger");
 
     let fmt_layer = fmt::layer().with_target(true).pretty();
 
     // default to error
     let filter_layer = EnvFilter::try_from_default_env()
         .or_else(|_| EnvFilter::try_new("error"))
-        .unwrap();
+        .expect("Failed to set EnvFilter for logging using tracing");
 
     // to filter output:
     // let filter = filter::Targets::new()
     //  .with_target("my_crate::uninteresting_module", LevelFilter::OFF);
-
-    tracing_subscriber::registry()
+    let subscriber = Registry::default()
         .with(filter_layer)
         .with(fmt_layer)
-        .with(ErrorLayer::default())
-        .init();
+        .with(ErrorLayer::default());
+
+    set_global_default(subscriber).expect("Failed to set tracing subscriber");
 }
 
-#[shuttle_runtime::main]
-async fn actix_web(
-    #[shuttle_shared_db::Postgres(
-    local_uri = dotenv!("DATABASE_URL"),
-  )]
-    pool: sqlx::PgPool,
-) -> ShuttleActixWeb<impl FnOnce(&mut ServiceConfig) + Send + Clone + 'static> {
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
     install_tracing();
     color_eyre::install().unwrap();
+    let pool = Pool::<Postgres>::connect(dotenv!("DATABASE_URL")).await.unwrap();
 
-    let todo_repository = todo::PostgresTodoRepository::new(pool.clone());
-    let todo_repository = actix_web::web::Data::new(todo_repository);
 
-    let user_repository = user::PostgresUserRepository::new(pool.clone());
-    let user_repository = actix_web::web::Data::new(user_repository);
+    HttpServer::new(move || {
+        let todo_repository = todo::PostgresTodoRepository::new(pool.clone());
+        let todo_repository = actix_web::web::Data::new(todo_repository);
 
-    let session_store = PostgresSessionRepository::new(pool.clone());
-    let signing_key = Key::from(dotenv!("SIGNING_KEY").as_bytes());
+        let user_repository = user::PostgresUserRepository::new(pool.clone());
+        let user_repository = actix_web::web::Data::new(user_repository);
 
-    let config = move |cfg: &mut ServiceConfig| {
-        cfg.service(
-            web::scope("/api")
-                .wrap(middleware::Logger::default())
-                .wrap(middleware::NormalizePath::trim())
-                .wrap(middleware::Compress::default())
-                .wrap(IdentityMiddleware::default())
-                .wrap(
-                    SessionMiddleware::builder(session_store, signing_key)
-                        // allow the cookie to be accessed from javascript
-                        .cookie_http_only(true)
-                        // allow the cookie only from the current domain
-                        .cookie_same_site(SameSite::Strict)
-                        .build(),
+        let session_repository = PostgresSessionRepository::new(pool.clone());
+
+        let cookie_priv_key = Key::from(dotenv!("SIGNING_KEY").as_bytes());
+
+        App::new()
+            .wrap(Compat::new(middleware::Logger::default()))
+            .wrap(Compat::new(middleware::Compress::default()))
+            .wrap(Compat::new(IdentityMiddleware::builder()
+                //.visit_deadline(Some(Duration::from_secs(config.cookie_timeout)))
+                .logout_behaviour(
+                    actix_identity::config::LogoutBehaviour::PurgeSession,
                 )
-                .app_data(todo_repository)
-                .app_data(user_repository)
-                .configure(health::service)
-                .configure(
-                    controllers::api::todo::service::<PostgresTodoRepository>,
-                )
-                .configure(
-                    controllers::api::user::service::<PostgresUserRepository>,
-                ),
-        )
-        .service(
-            actix_files::Files::new("/static", "./app/static")
-                .show_files_listing(),
-        )
-        .service(
-            web::scope("/")
-                .wrap(middleware::Logger::default())
-                .wrap(middleware::NormalizePath::trim())
-                .wrap(middleware::Compress::default()),
-            //.configure(app::controllers::html::service),
-        );
-    };
+                .build())
+            )
+            .wrap(Compat::new(
+                SessionMiddleware::builder(session_repository, cookie_priv_key)
+                    .session_lifecycle(PersistentSession::default())
+                    .cookie_content_security(CookieContentSecurity::Private)
+                    .cookie_same_site(SameSite::Strict)
+                    .cookie_path("/".into())
+                    .cookie_domain(None)
+                    .cookie_secure(true)
+                    .cookie_http_only(true)
+                    .build(),
+            ))
+            .app_data(todo_repository)
+            .app_data(user_repository)
+            .configure(controllers::api::service)
+    })
+    .bind_rustls("127.0.0.1:8443", rustls_setup()).map_err(|e| Error::new(ErrorKind::Other, e))?
+    .run()
+    .await
+}
 
-    Ok(config.into())
+fn rustls_setup() -> ServerConfig {
+    // init server config builder with safe defaults
+    let config =
+        ServerConfig::builder().with_safe_defaults().with_no_client_auth();
+
+    let cert_path = dotenv!("CERT_PATH");
+    let key_path = dotenv!("KEY_PATH");
+
+    // load TLS key/cert files
+    let cert_file = &mut BufReader::new(std::fs::File::open(cert_path).unwrap());
+    let key_file = &mut BufReader::new(std::fs::File::open(key_path).unwrap());
+
+    // convert files to key/cert objects
+    let cert_chain = rustls_pemfile::certs(cert_file).unwrap()
+        .into_iter()
+        .map(Certificate)
+        .collect();
+    let mut keys: Vec<PrivateKey> =
+        pkcs8_private_keys(key_file).unwrap().into_iter().map(PrivateKey).collect();
+
+    config
+        .with_single_cert(cert_chain, keys.remove(0))
+        .unwrap()
 }

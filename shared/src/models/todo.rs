@@ -55,3 +55,43 @@ pub struct UpdateTodo {
     pub description: Option<String>,
     pub is_done: Option<bool>,
 }
+
+#[derive(
+    Serialize,
+    Deserialize,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Default,
+)]
+pub struct FormUpdateTodo {
+    pub id: i64,
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub is_done: Option<String>,
+}
+
+impl From<FormUpdateTodo> for UpdateTodo {
+    fn from(form_update_todo: FormUpdateTodo) -> Self {
+        Self {
+            id: form_update_todo.id,
+            title: form_update_todo.title,
+            description: form_update_todo.description,
+            is_done: match form_update_todo.is_done {
+                Some(is_done) => {
+                    if is_done == "on" {
+                        Some(true)
+                    } else if is_done == "off" {
+                        Some(false)
+                    } else {
+                        None
+                    }
+                }
+                None => None,
+            },
+        }
+    }
+}

@@ -25,7 +25,7 @@ pub trait TodoRepository: Send + Sync + 'static {
         &self,
         update_todo: &UpdateTodo,
         session_user_id: &i64,
-    ) -> ErrorOr<()>;
+    ) -> ErrorOr<Todo>;
 
     async fn delete_todo(&self, id: &i64, session_user_id: &i64)
     -> ErrorOr<()>;
@@ -130,8 +130,8 @@ impl TodoRepository for PostgresTodoRepository {
         &self,
         update_todo: &UpdateTodo,
         session_user_id: &i64,
-    ) -> ErrorOr<()> {
-        let db_response = sqlx::query(
+    ) -> ErrorOr<Todo> {
+        let db_response = sqlx::query_as::<_, Todo>(
             r#"
             UPDATE todos
             SET
@@ -140,6 +140,7 @@ impl TodoRepository for PostgresTodoRepository {
                 is_done = COALESCE($3, is_done),
                 updated_at = NOW()
             WHERE id = $4 and owner = $5
+            RETURNING *
             "#,
         )
         .bind::<&Option<String>>(&update_todo.title)
@@ -147,9 +148,8 @@ impl TodoRepository for PostgresTodoRepository {
         .bind::<&Option<bool>>(&update_todo.is_done)
         .bind::<&i64>(&update_todo.id)
         .bind::<&i64>(session_user_id)
-        .execute(&self.pool)
+        .fetch_one(&self.pool)
         .await
-        .map(|_| ())
         .map_err(|e| match e {
             sqlx::Error::RowNotFound => RepositoryError::Forbidden {
                 operation: Operation::Update,

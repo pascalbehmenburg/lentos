@@ -11,7 +11,7 @@ actix-web = { version = "4.3.1", features = ["rustls"] }
 actix-session = "0.8.0"
 actix-identity = "0.6.0"
 actix-rt = "2.3.0"
-
+actix-files = "0.6.2"
 # database
 sqlx = { version = "0.7.1", default-features = false, features = [
     "runtime-tokio",
@@ -45,7 +45,10 @@ reqwest = { version = "0.11.20", features = ["json", "cookies", "rustls-tls"] }
 fake = "2.0.0"
 dotenv = "0.15.0"
 mime = "0.3.17"
-maud = { version = "0.25.0", features = ["actix-web"] }
 
 [features]
 __compress = []
+
+[target.aarch64-apple-darwin] # M1 macOS target
+linker = "clang"
+rustflags = ["-Clink-arg=-fuse-ld=mold"]

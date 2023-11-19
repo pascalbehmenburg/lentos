@@ -4,13 +4,13 @@ use actix_http::StatusCode;
 use actix_web::{http::header::ContentType, HttpResponse, ResponseError};
 use color_eyre::eyre;
 
-#[derive(Debug, derive_more::Display)]
+#[derive(Debug, derive_more::Display, derive_more::Error)]
 pub enum Error {
     #[display(fmt = "Error {}: {}", _0, _1)]
     External(StatusCode, Cow<'static, str>),
 
     #[display(fmt = "{}", _0)]
-    Internal(eyre::Error),
+    Internal(#[error(not(source))] eyre::Error),
 }
 
 // TODO register custom errorhandler middleware to always respond with
@@ -76,5 +76,11 @@ impl From<sqlx::Error> for Error {
             ),
             _ => Error::Internal(e.into()),
         }
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Self {
+        Error::Internal(e.into())
     }
 }

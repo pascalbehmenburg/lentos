@@ -1,5 +1,5 @@
 [workspace]
-members = ["app", "bootstrap", "shared"]
+members = ["app", "bootstrap", "shared", "frontend"]
 resolver = "2"
 
 [workspace.package]

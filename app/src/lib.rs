@@ -4,4 +4,3 @@
 pub mod controllers;
 pub mod repository;
 pub mod util;
-pub mod views;

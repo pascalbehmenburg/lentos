@@ -25,11 +25,7 @@ Secrets*.toml
 # rustrover config
 .idea/
 
-*.DS_STORE
-
-app/src/static/tailwind.css
-node_modules/
-
+# certificate files
 **/*.pem
 
 # cookie persistence file of the frontend client
@@ -37,3 +33,15 @@ frontend/cookies.json
 
 # macos specific shit
 **/*.DS_STORE
+
+# dioxus files
+**/dioxusin
+frontend/dist/*
+frontend/dist/**/*
+
+# tailwind files
+frontend/tailwind.css
+app/src/static/tailwind.css
+
+# node thingies
+node_modules/

@@ -31,7 +31,5 @@ tracing-subscriber = { version = "0.3.17", default-features = true, features = [
 ] }
 
 shared = { path = "../shared" }
-
-[target.aarch64-apple-darwin]
-linker = "clang"
-rustflags = ["-Clink-arg=-fuse-ld=/path/to/ld64.mold"]
+app_dirs2 = "2.5.5"
+derive_more = "0.99.17"

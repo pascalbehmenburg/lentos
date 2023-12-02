@@ -14,7 +14,7 @@ pub fn service<R: TodoRepository>(cfg: &mut ServiceConfig) {
             .route("/{todo_id}", web::get().to(get::<R>))
             .route("", web::get().to(get_all::<R>))
             .route("", web::put().to(put::<R>))
-            .route("", web::delete().to(delete::<R>))
+            .route("/{todo_id}", web::delete().to(delete::<R>))
             .route("", web::post().to(post::<R>)),
     );
 }

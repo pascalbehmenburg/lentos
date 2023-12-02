@@ -10,6 +10,3 @@ authors = ["Pascal Behmenburg"]
 
 [profile.dev.package.backtrace]
 opt-level = 3
-
-[profile.dev.package.askama_derive]
-opt-level = 3

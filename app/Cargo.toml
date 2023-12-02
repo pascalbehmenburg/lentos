@@ -48,7 +48,3 @@ mime = "0.3.17"
 
 [features]
 __compress = []
-
-[target.aarch64-apple-darwin] # M1 macOS target
-linker = "clang"
-rustflags = ["-Clink-arg=-fuse-ld=mold"]

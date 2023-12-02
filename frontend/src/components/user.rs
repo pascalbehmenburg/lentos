@@ -1,4 +1,4 @@
-use crate::handler::api_client::ApiHandler;
+use crate::handler::api_handler::ApiHandler;
 use dioxus::prelude::*;
 use shared::models::user::User;
 
@@ -8,16 +8,9 @@ pub(crate) fn User(cx: Scope) -> Element {
     let user_future = use_future(cx, (), |_| {
         to_owned![api_handler];
         async move {
-            let base_url = api_handler.base_url;
-
-            api_handler
-                .client
-                .get(format!("{base_url}/users"))
-                .send()
-                .await
-                .unwrap()
-                .json::<User>()
-                .await
+            let response = api_handler.get("/users").await;
+            let user = response.json::<User>().await;
+            user
         }
     });
 
@@ -26,7 +19,7 @@ pub(crate) fn User(cx: Scope) -> Element {
             Some(Ok(user)) => rsx! {
                 div { "{user:?}" }
             },
-            Some(Err(e)) => rsx! { div { "Loading user failed {e:?}" } },
+            Some(Err(e)) => rsx! { div { "Error: {e}" } },
             None => rsx! { div { "Loading user..." } },
         },
     }

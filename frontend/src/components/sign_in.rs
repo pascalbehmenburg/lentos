@@ -1,5 +1,5 @@
 use shared::models::user::SignInUser;
-use crate::handler::api_client::ApiHandler;
+use crate::handler::api_handler::ApiHandler;
 use dioxus::prelude::*;
 use dioxus_router::prelude::use_navigator;
 use dioxus_router::prelude::Link;
@@ -16,7 +16,7 @@ pub(crate) fn SignIn(cx: Scope) -> Element {
 
     cx.spawn(async move {
       crate::api::auth::sign_in(&api_handler, sign_in_user).await;
-      navigator.replace(Route::User {});
+      navigator.replace(Route::TodoList {});
     });
   };
 

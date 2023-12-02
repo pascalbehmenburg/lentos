@@ -1,9 +1,13 @@
 use crate::handler::cookie_handler::CookieHandler;
-use reqwest::Client;
+use reqwest::{Client, Response};
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
+use shared::models::user::User;
+use std::error::Error;
 use std::ops::Deref;
 use std::rc::Rc;
 
-const BASE_URL: &str = "https://localhost:8443/api/v1";
+pub(crate) const BASE_URL: &str = "https://localhost:8443/api/v1";
 
 #[derive(Clone)]
 pub struct ApiHandler {
@@ -11,7 +15,7 @@ pub struct ApiHandler {
 }
 
 impl ApiHandler {
-    pub fn new(base_url: &'static str) -> Self {
+    pub fn new() -> Self {
         let cookie_store_handler = CookieHandler::new();
         let cookie_store = cookie_store_handler.get_cookie_store();
 
@@ -29,12 +33,29 @@ impl ApiHandler {
             .unwrap();
 
         ApiHandler {
-            api_client_wrapper: Rc::new(ApiClientWrapper {
-                client,
-                cookie_store: cookie_store_handler,
-                base_url,
-            }),
+            api_client_wrapper: Rc::new(
+                ApiClientWrapper { client, cookie_store: cookie_store_handler }
+            ),
         }
+    }
+
+    pub async fn get(&self, rel_path: &str) -> Response {
+        let url = format!("{BASE_URL}{rel_path}");
+        self.client.get(url).send().await.expect("Failed to send request")
+    }
+
+    pub async fn post<T: Serialize>(
+        &self,
+        rel_path: &str,
+        json_payload: &T,
+    ) -> Response {
+        let url = format!("{BASE_URL}{rel_path}");
+        self.client
+            .post(url)
+            .json(json_payload)
+            .send()
+            .await
+            .expect("Failed to send request")
     }
 }
 
@@ -49,7 +70,6 @@ impl Deref for ApiHandler {
 pub struct ApiClientWrapper {
     pub(crate) client: Client,
     pub(crate) cookie_store: CookieHandler,
-    pub(crate) base_url: &'static str,
 }
 
 impl Drop for ApiClientWrapper {

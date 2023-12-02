@@ -28,9 +28,6 @@ Secrets*.toml
 # certificate files
 **/*.pem
 
-# cookie persistence file of the frontend client
-frontend/cookies.json
-
 # macos specific shit
 **/*.DS_STORE
 
@@ -45,3 +42,5 @@ app/src/static/tailwind.css
 
 # node thingies
 node_modules/
+
+**/tailwind.css

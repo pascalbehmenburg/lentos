@@ -66,7 +66,7 @@ pub struct UpdateUser {
     Ord,
     Default,
 )]
-pub struct LoginUser {
+pub struct SignInUser {
     pub email: String,
     pub password: String,
 }

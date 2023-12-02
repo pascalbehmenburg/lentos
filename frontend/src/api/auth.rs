@@ -1,4 +1,4 @@
-use crate::handler::api_client::ApiHandler;
+use crate::handler::api_handler::ApiHandler;
 use shared::models::user::{CreateUser, SignInUser};
 
 pub(crate) async fn sign_in(
@@ -6,15 +6,9 @@ pub(crate) async fn sign_in(
     sign_in_user: SignInUser,
 ) {
     tracing::debug!("Trying to sign in with provided data...");
-    let base_url = api_handler.base_url;
 
-    let sign_in_response = api_handler
-        .client
-        .post(format!("{base_url}/users/login"))
-        .json(&sign_in_user)
-        .send()
-        .await
-        .unwrap();
+    let sign_in_response =
+        api_handler.post("/users/login", &sign_in_user).await;
 
     if !sign_in_response.status().is_success() {
         tracing::error!(
@@ -37,15 +31,9 @@ pub(crate) async fn sign_up(
     sign_up_user: CreateUser,
 ) {
     tracing::debug!("Processing sign up event...");
-    let base_url = api_handler.base_url;
 
-    let sign_up_response = &api_handler
-        .client
-        .post(format!("{base_url}/users/register"))
-        .json(&sign_up_user)
-        .send()
-        .await
-        .unwrap();
+    let sign_up_response =
+        api_handler.post("/users/register", &sign_up_user).await;
 
     if !sign_up_response.status().is_success() {
         tracing::error!(

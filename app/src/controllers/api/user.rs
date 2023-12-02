@@ -5,7 +5,7 @@ use actix_web::{
     HttpRequest, HttpResponse,
 };
 
-use shared::models::user::{CreateUser, LoginUser, UpdateUser, User};
+use shared::models::user::{CreateUser, SignInUser, UpdateUser, User};
 
 use crate::{
     controllers::common::{self, AuthUser},
@@ -44,7 +44,7 @@ pub fn service<R: UserRepository>(cfg: &mut ServiceConfig) {
 
 async fn login<R: UserRepository>(
     request: HttpRequest,
-    login_user: web::Json<LoginUser>,
+    login_user: web::Json<SignInUser>,
     repo: web::Data<R>,
 ) -> ErrorOr<HttpResponse> {
     let user = repo

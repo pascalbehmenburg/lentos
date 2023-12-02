@@ -1,3 +1,4 @@
+use dioxus::prelude::Props;
 use serde::{Deserialize, Serialize};
 
 #[cfg_attr(feature = "backend", derive(sqlx::FromRow))]
@@ -11,6 +12,7 @@ use serde::{Deserialize, Serialize};
     PartialOrd,
     Ord,
     Default,
+    Props,
 )]
 pub struct Todo {
     pub id: i64,

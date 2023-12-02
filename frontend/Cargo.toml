@@ -33,3 +33,5 @@ tracing-subscriber = { version = "0.3.17", default-features = true, features = [
 shared = { path = "../shared" }
 app_dirs2 = "2.5.5"
 derive_more = "0.99.17"
+tokio = { version = "1.32.0", optional = true }
+tracing-test = "0.2.4"

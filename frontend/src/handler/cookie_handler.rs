@@ -36,7 +36,6 @@ impl CookieHandler {
             cookie_store
         } else {
             tracing::debug!("Creating new cookie store");
-
             CookieStore::new(None)
         };
 

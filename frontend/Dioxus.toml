@@ -13,27 +13,6 @@ out_dir = "dist"
 # resource (public) file folder
 asset_dir = "public"
 
-[desktop.app]
-
-# HTML title tag content
-title = "Lentos"
-
-# include `assets` in web platform
-[desktop.resource]
-
-# CSS style file
-style = ["tailwind.css"]
-
-# Javascript code file
-script = []
-
-[desktop.watcher]
-reload_html = true
-
-watch_path = ["src", "public"]
-
-index_on_404 = true
-
 [web.app]
 
 # HTML title tag content
@@ -42,7 +21,7 @@ title = "Lentos"
 [web.watcher]
 
 # when watcher trigger, regenerate the `index.html`
-reload_html = true
+reload_html = false
 
 # which files or dirs will be watcher monitoring
 watch_path = ["src", "public"]

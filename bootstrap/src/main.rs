@@ -19,6 +19,7 @@ use rustls::{ServerConfig, Certificate, PrivateKey};
 use rustls_pemfile::pkcs8_private_keys;
 use sqlx::{Postgres, Pool};
 use tracing::subscriber::set_global_default;
+use tracing_subscriber::filter::Targets;
 use tracing_subscriber::Registry;
 
 #[macro_use]
@@ -29,21 +30,19 @@ fn install_tracing() {
     use tracing_subscriber::{prelude::*, EnvFilter};
     use tracing_subscriber::fmt;
     use tracing_log::LogTracer;
+    use tracing_subscriber::filter::*;
 
     LogTracer::init().expect("Failed to set logger");
 
     let fmt_layer = fmt::layer().with_target(true).pretty();
 
-    // default to error
-    let filter_layer = EnvFilter::try_from_default_env()
-        .or_else(|_| EnvFilter::try_new("error"))
-        .expect("Failed to set EnvFilter for logging using tracing");
+    let lib_filter_layer = Targets::new()
+        .with_target("h2", LevelFilter::ERROR)
+        .with_target("hyper", LevelFilter::ERROR)
+        .with_default(LevelFilter::DEBUG);
 
-    // to filter output:
-    // let filter = filter::Targets::new()
-    //  .with_target("my_crate::uninteresting_module", LevelFilter::OFF);
     let subscriber = Registry::default()
-        .with(filter_layer)
+        .with(lib_filter_layer)
         .with(fmt_layer)
         .with(ErrorLayer::default());
 

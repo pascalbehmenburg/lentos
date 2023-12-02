@@ -10,7 +10,7 @@ use argon2::{
 
 use futures_core::Future;
 use rand::rngs::OsRng;
-use shared::models::user::{LoginUser, User};
+use shared::models::user::{SignInUser, User};
 
 use crate::util::{error::Error, error_or::ErrorOr};
 
@@ -18,21 +18,10 @@ use super::api::user::UserError;
 // TODO maybe create auth trait
 
 /// Logs in a user by verifying their password and setting a session cookie.
-///
-/// # Arguments
-///
-/// * `request` - The HTTP request object.
-/// * `db_user` - The user object from the database.
-/// * `req_user` - The user object from the request.
-///
-/// # Errors
-///
-/// Returns an error if the password is invalid or if there is an internal
-/// error.
 pub async fn login(
     request: &HttpRequest,
     db_user: &User,
-    req_user: &LoginUser,
+    req_user: &SignInUser,
 ) -> ErrorOr<()> {
     let argon2 = Argon2::default();
     let parsed_hash = PasswordHash::new(&db_user.password)?;
@@ -85,13 +74,14 @@ impl FromRequest for AuthUser {
         let identity = Identity::from_request(req, &mut Payload::None);
 
         let future = async move {
-            let identity = identity.await.map_err(|_| {
-                Error::External(
-                    StatusCode::UNAUTHORIZED,
-                    "You do not seem to be logged in. Please log in first."
-                        .into(),
-                )
-            })?;
+            let identity =
+                identity.await.map_err(|_| {
+                    Error::External(
+                        StatusCode::UNAUTHORIZED,
+                        "You do not seem to be logged in. Please log in first."
+                            .into(),
+                    )
+                })?;
             let id = Self::parse_identity_id(identity).await?;
             Ok(Self { id })
         };

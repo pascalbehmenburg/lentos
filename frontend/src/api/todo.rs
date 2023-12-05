@@ -1,5 +1,6 @@
 use crate::handler::api_handler::{ApiHandler, BASE_URL};
-use shared::models::todo::{CreateTodo, Todo};
+use reqwest::StatusCode;
+use shared::models::todo::{CreateTodo, Todo, UpdateTodo};
 
 pub(crate) async fn create_todo(
     api_handler: &ApiHandler,
@@ -81,24 +82,34 @@ pub(crate) async fn delete_todo(api_handler: &ApiHandler, todo_id: &i64) {
     }
 }
 
-pub(crate) async fn update_todo(api_handler: &ApiHandler, todo_id: &i64) {
-    tracing::debug!("Trying to update todo with id: {todo_id}...");
+pub(crate) async fn update_todo(
+    api_handler: &ApiHandler,
+    update_todo: UpdateTodo,
+) -> StatusCode {
+    let todo_id = update_todo.id;
+    tracing::debug!("Trying to update {update_todo:?}...");
 
     let response = api_handler
         .client
-        .put(&format!("{BASE_URL}/todos/{todo_id}"))
+        .put(&format!("{BASE_URL}/todos"))
+        .json(&update_todo)
         .send()
         .await
         .expect("Failed to send request");
 
     if !response.status().is_success() {
         tracing::error!(
-            "Failed to update todo with id: {todo_id}. Server responded: {:?}",
+            "Failed to update todo {todo_id}. Server responded: {:?}",
             response
         );
     } else {
-        tracing::debug!("Updated todo with id: {todo_id}.");
+        tracing::debug!(
+            "Updated todo {todo_id}. Server responded: {:?}",
+            response
+        );
     }
+
+    response.status()
 }
 
 // this does not ensure the correctness of the functions tested

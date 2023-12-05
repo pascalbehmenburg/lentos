@@ -23,6 +23,7 @@ use components::sign_up::SignUp;
 use components::sign_in::SignIn;
 use components::user::User;
 use components::todo::TodoList;
+use components::todo::Todo;
 
 pub static INDEX_HTML: &str = r#"
 <!DOCTYPE html>
@@ -77,9 +78,9 @@ fn main() {
         .with_title("Lentos")
         .with_always_on_top(true)
         .with_window_icon(None)
-        .with_resizable(false)
-        .with_inner_size(LogicalSize::new(600, 1080))
-        .with_position(LogicalPosition::new(1920-600, 0))
+        .with_resizable(true)
+        .with_inner_size(LogicalSize::new(600, 800))
+        .with_position(LogicalPosition::new(0, 0))
         .with_focused(false); // unsopported on ios / android
 
     dioxus_desktop::launch_cfg(
@@ -87,7 +88,7 @@ fn main() {
         dioxus_desktop::Config::new()
             .with_custom_index(INDEX_HTML.to_string())
             .with_data_directory(data_directory)
-            .with_disable_context_menu(true)
+            .with_disable_context_menu(false)
             .with_background_color((0x18, 0x18, 0x1b, 100))
             .with_window(window),
     );
@@ -104,7 +105,7 @@ enum Route {
         SignUp {},
         #[route("/user")]
         User {},
-        #[route("/todo")]
+        #[route("/todolist")]
         TodoList {},
     #[end_layout]
     #[route("/:..route")]

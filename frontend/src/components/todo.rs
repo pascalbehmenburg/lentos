@@ -122,14 +122,13 @@ pub(crate) fn Todo(cx: Scope<Todo>) -> Element {
                     CheckMark { checked: todo.read().is_done }
             }
             div {
-                class: "flex flex-col {line_through_css_class} cursor-pointer",
+                class: "flex flex-col {line_through_css_class} w-full",
                 if !is_edited {
                     render! {
                         div {
+                            class: "cursor-pointer",
                             onclick: move |event| {
-                                tracing::debug!("Encountered event: {:?}", event);
                                 event.stop_propagation();
-
                                 is_edited.set(!is_edited.get());
                             },
                             p {
@@ -145,31 +144,56 @@ pub(crate) fn Todo(cx: Scope<Todo>) -> Element {
                 } else {
                     render! {
                         div {
-                            onkeypress: move |evt| {
-                                if evt.key() == keyboard_types::Key::Enter {
-                                    update_todo_handler(UpdateTodo {
-                                        id: cx.props.id,
-                                        title: Some(todo.read().title.clone()),
-                                        description: Some(todo.read().description.clone()),
-                                        is_done: None
-                                    });
-                                }
-                            },
+                            class: "",
                             input {
                                 r#type: "text",
                                 name: "title",
                                 placeholder: "Title",
                                 value: "{todo.read().title}",
-                                class: "w-full overflow-hidden border-b border-transparent bg-transparent text-lg focus:outline-none dark:placeholder-zinc-50 focus:dark:border-zinc-500",
+                                class: "w-full overflow-hidden border-b border-transparent bg-transparent text-lg focus:outline-none dark:text-zinc-50 dark:placeholder:text-zinc-50 focus:dark:border-zinc-500",
                                 autofocus: true,
+                                onmounted: move |event| {
+                                    event.inner().set_focus(true);
+                                },
                                 oninput: move |evt| todo.with_mut(|todo| todo.title = evt.value.clone()),
+                                onkeypress: move |evt| {
+                                    if evt.key() == keyboard_types::Key::Enter {
+                                        update_todo_handler(UpdateTodo {
+                                            id: cx.props.id,
+                                            ..todo.read().clone().into()
+                                        });
+                                    }
+                                },
                             }
                             input {
                                 r#type: "text",
                                 name: "description",
-                                placeholder: "{todo.read().description}",
-                                class: "w-full overflow-hidden border-b border-transparent bg-transparent text-sm focus:outline-none dark:text-zinc-400 focus:dark:border-zinc-500",
+                                placeholder: "Description",
+                                value: "{todo.read().description}",
+                                class: "w-full overflow-hidden border-b border-transparent bg-transparent text-sm focus:outline-none dark:text-zinc-400 dark:placeholder:text-zinc-400 focus:dark:border-zinc-500",
                                 oninput: move |evt| todo.with_mut(|todo| todo.description = evt.value.clone()),
+                            }
+                            div {
+                                class: "flex justify-end space-x-2 mt-2",
+                                button {
+                                    class: "rounded bg-zinc-300 px-3 py-1 text-zinc-950 hover:bg-gray-200",
+                                    onclick: move |event| {
+                                        event.stop_propagation();
+                                        is_edited.set(!is_edited.get());
+                                    },
+                                    "Cancel"
+                                }
+                                button {
+                                    class: "rounded bg-sky-600 px-3 py-1 text-white hover:bg-sky-500",
+                                    onclick: move |event| {
+                                        event.stop_propagation();
+                                        update_todo_handler(UpdateTodo {
+                                            id: cx.props.id,
+                                            ..todo.read().clone().into()
+                                        });
+                                    },
+                                    "Save"
+                                }
                             }
                         }
                     }

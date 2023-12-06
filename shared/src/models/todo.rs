@@ -97,3 +97,14 @@ impl From<FormUpdateTodo> for UpdateTodo {
         }
     }
 }
+
+impl From<Todo> for UpdateTodo {
+    fn from(todo: Todo) -> Self {
+        Self {
+            id: todo.id,
+            title: Some(todo.title),
+            description: Some(todo.description),
+            is_done: Some(todo.is_done),
+        }
+    }
+}

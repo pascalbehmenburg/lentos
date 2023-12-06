@@ -5,6 +5,7 @@ use app_dirs2::{app_root, AppDataType};
 use dioxus::prelude::*;
 use dioxus_desktop::tao::dpi::{LogicalPosition, PhysicalPosition};
 use dioxus_desktop::{LogicalSize, PhysicalSize, WindowBuilder};
+use dioxus_desktop::tao::menu::{MenuBar, MenuItem};
 use dioxus_desktop::tao::monitor;
 use dioxus_desktop::tao::monitor::MonitorHandle;
 use dioxus_desktop::tao::window::Fullscreen;
@@ -47,6 +48,61 @@ pub static INDEX_HTML: &str = r#"
 </html>
 "#;
 
+/// Creates a standard menu bar depending on the platform
+fn create_default_menu_bar() -> MenuBar {
+    let mut menu_bar = MenuBar::new();
+
+    // since it is uncommon on windows to have an "application menu"
+    // we add a "window" menu to be more consistent across platforms with the standard menu
+    let mut window_menu = MenuBar::new();
+    #[cfg(target_os = "macos")]
+    {
+        window_menu.add_native_item(MenuItem::EnterFullScreen);
+        window_menu.add_native_item(MenuItem::Zoom);
+        window_menu.add_native_item(MenuItem::Separator);
+    }
+
+    window_menu.add_native_item(MenuItem::Hide);
+
+    #[cfg(target_os = "macos")]
+    {
+        window_menu.add_native_item(MenuItem::HideOthers);
+        window_menu.add_native_item(MenuItem::ShowAll);
+    }
+
+    window_menu.add_native_item(MenuItem::Minimize);
+    window_menu.add_native_item(MenuItem::CloseWindow);
+    window_menu.add_native_item(MenuItem::Separator);
+    window_menu.add_native_item(MenuItem::Quit);
+    menu_bar.add_submenu("Window", true, window_menu);
+
+    // since tao supports none of the below items on linux we should only add them on macos/windows
+    #[cfg(not(target_os = "linux"))]
+    {
+        let mut edit_menu = MenuBar::new();
+        #[cfg(target_os = "macos")]
+        {
+            edit_menu.add_native_item(MenuItem::Undo);
+            edit_menu.add_native_item(MenuItem::Redo);
+            edit_menu.add_native_item(MenuItem::Separator);
+        }
+
+        edit_menu.add_native_item(MenuItem::Cut);
+        edit_menu.add_native_item(MenuItem::Copy);
+        edit_menu.add_native_item(MenuItem::Paste);
+
+        #[cfg(target_os = "macos")]
+        {
+            edit_menu.add_native_item(MenuItem::Separator);
+            edit_menu.add_native_item(MenuItem::SelectAll);
+        }
+        menu_bar.add_submenu("Edit", true, edit_menu);
+    }
+
+    menu_bar
+}
+
+/// Installs tracing subscriber with default configuration
 fn install_tracing() {
     use tracing_error::ErrorLayer;
     use tracing_subscriber::{prelude::*, EnvFilter};
@@ -81,7 +137,8 @@ fn main() {
         .with_resizable(true)
         .with_inner_size(LogicalSize::new(600, 800))
         .with_position(LogicalPosition::new(0, 0))
-        .with_focused(false); // unsopported on ios / android
+        .with_focused(false)
+        .with_menu(create_default_menu_bar()); // unsopported on ios / android
 
     dioxus_desktop::launch_cfg(
         App,

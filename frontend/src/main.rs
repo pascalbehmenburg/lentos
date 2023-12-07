@@ -26,6 +26,7 @@ use components::user::User;
 use components::todo::TodoList;
 use components::todo::Todo;
 
+
 pub static INDEX_HTML: &str = r#"
 <!DOCTYPE html>
 <html class="h-full scroll-smooth" lang="en" dir="ltr">
@@ -114,7 +115,7 @@ fn install_tracing() {
     let lib_filter_layer = Targets::new()
         .with_target("h2", LevelFilter::ERROR)
         .with_target("hyper", LevelFilter::ERROR)
-        .with_default(LevelFilter::DEBUG);;
+        .with_default(LevelFilter::DEBUG);
 
     tracing_subscriber::registry()
         .with(lib_filter_layer)
@@ -138,7 +139,7 @@ fn main() {
         .with_inner_size(LogicalSize::new(600, 800))
         .with_position(LogicalPosition::new(0, 0))
         .with_focused(false)
-        .with_menu(create_default_menu_bar()); // unsopported on ios / android
+        .with_menu(create_default_menu_bar()); // unsupported on ios / android
 
     dioxus_desktop::launch_cfg(
         App,
@@ -193,7 +194,7 @@ fn BaseLayout(cx: Scope) -> Element {
     }
 }
 
-fn Redirection(cx: Scope) -> Element {
+fn AuthCheck(cx: Scope) -> Element {
     let api_handler: &ApiHandler = use_context(cx).unwrap();
     let navigator = use_navigator(cx);
 

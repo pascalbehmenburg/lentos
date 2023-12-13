@@ -29,6 +29,9 @@ pub(crate) fn SignIn(cx: Scope) -> Element {
                 let email = event.values["email"].first().unwrap().to_string();
                 let password = event.values["password"].first().unwrap().to_string();
 
+                let all_values = event.values.clone();
+                tracing::debug!("{:?}", all_values);
+
                 sign_in_handler(SignInUser { email, password });
             },
             class: "p-6 grid",

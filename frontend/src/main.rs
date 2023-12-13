@@ -156,7 +156,7 @@ fn main() {
 enum Route {
     #[layout(BaseLayout)]
         #[route("/")]
-        Redirection {},
+        AuthCheck {},
         #[route("/signin")]
         SignIn {},
         #[route("/signup")]

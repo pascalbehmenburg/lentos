@@ -248,12 +248,10 @@ impl SessionStore for PostgresSessionRepository {
         session_key: &SessionKey,
     ) -> Result<(), anyhow::Error> {
         let db_response = self
-      .db_delete(session_key)
-      .await
-      .map_err(anyhow::Error::from)
-      .context(
-        "Some psql error occurred when trying to delete session from db.",
-      );
+            .db_delete(session_key)
+            .await
+            .map_err(anyhow::Error::from)
+            .context("Some psql error occurred when trying to delete session from db.");
 
         return db_response;
     }

@@ -1,34 +1,32 @@
-use shared::models::user::{CreateUser, SignInUser};
+use crate::api::auth::sign_up;
 use crate::handler::api_handler::ApiHandler;
+use crate::Route;
 use dioxus::prelude::*;
 use dioxus_router::prelude::use_navigator;
 use dioxus_router::prelude::Link;
-use crate::Route;
-use crate::api::auth::{sign_up};
+use shared::models::user::CreateUser;
 
 pub(crate) fn SignUp(cx: Scope) -> Element {
-  let api_handler: &ApiHandler = use_context(cx).unwrap();
-  let navigator = use_navigator(cx);
+    let api_handler: &ApiHandler = use_context(cx).unwrap();
+    let navigator = use_navigator(cx);
 
-  let sign_up_handler = move |createUser: CreateUser| {
-    to_owned![api_handler, navigator];
+    let sign_up_handler = move |createUser: CreateUser| {
+        to_owned![api_handler, navigator];
 
-    cx.spawn(async move {
-      sign_up(&api_handler, createUser).await;
-      navigator.replace(Route::TodoList {});
-    });
-  };
+        cx.spawn(async move {
+            sign_up(&api_handler, createUser).await;
+            navigator.replace(Route::TodoList {});
+        });
+    };
 
-  render! {
+    render! {
         form {
             onsubmit: move |event| {
                 tracing::debug!("Encountered event: {:?}", event);
                 event.stop_propagation();
-
                 let name = event.values["username"].first().unwrap().to_string();
                 let email = event.values["email"].first().unwrap().to_string();
                 let password = event.values["password"].first().unwrap().to_string();
-
                 sign_up_handler(CreateUser {
                     name,
                     email,

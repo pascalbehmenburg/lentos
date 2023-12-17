@@ -8,18 +8,21 @@ use actix_session::{
 use actix_web::{
     cookie::{Key, SameSite},
     middleware::{self, Compat},
-    HttpServer, App,
+    App, HttpServer,
 };
 
 use app::{
-    repository::{todo::{self}, user, session::PostgresSessionRepository},
     controllers::{self},
+    repository::{
+        session::PostgresSessionRepository,
+        todo::{self},
+        user,
+    },
 };
-use rustls::{ServerConfig, Certificate, PrivateKey};
+use rustls::{Certificate, PrivateKey, ServerConfig};
 use rustls_pemfile::pkcs8_private_keys;
-use sqlx::{Postgres, Pool};
+use sqlx::{Pool, Postgres};
 use tracing::subscriber::set_global_default;
-use tracing_subscriber::filter::Targets;
 use tracing_subscriber::Registry;
 
 #[macro_use]
@@ -27,10 +30,10 @@ extern crate dotenv_codegen;
 
 fn install_tracing() {
     use tracing_error::ErrorLayer;
-    use tracing_subscriber::{prelude::*, EnvFilter};
-    use tracing_subscriber::fmt;
     use tracing_log::LogTracer;
     use tracing_subscriber::filter::*;
+    use tracing_subscriber::fmt;
+    use tracing_subscriber::prelude::*;
 
     LogTracer::init().expect("Failed to set logger");
 
@@ -53,8 +56,8 @@ fn install_tracing() {
 async fn main() -> std::io::Result<()> {
     install_tracing();
     color_eyre::install().unwrap();
-    let pool = Pool::<Postgres>::connect(dotenv!("DATABASE_URL")).await.unwrap();
-
+    let pool =
+        Pool::<Postgres>::connect(dotenv!("DATABASE_URL")).await.unwrap();
 
     HttpServer::new(move || {
         let todo_repository = todo::PostgresTodoRepository::new(pool.clone());
@@ -70,13 +73,14 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .wrap(Compat::new(middleware::Logger::default()))
             .wrap(Compat::new(middleware::Compress::default()))
-            .wrap(Compat::new(IdentityMiddleware::builder()
-                //.visit_deadline(Some(Duration::from_secs(config.cookie_timeout)))
-                .logout_behaviour(
-                    actix_identity::config::LogoutBehaviour::PurgeSession,
-                )
-                .build())
-            )
+            .wrap(Compat::new(
+                IdentityMiddleware::builder()
+                    //.visit_deadline(Some(Duration::from_secs(config.cookie_timeout)))
+                    .logout_behaviour(
+                        actix_identity::config::LogoutBehaviour::PurgeSession,
+                    )
+                    .build(),
+            ))
             .wrap(Compat::new(
                 SessionMiddleware::builder(session_repository, cookie_priv_key)
                     .session_lifecycle(PersistentSession::default())
@@ -92,7 +96,8 @@ async fn main() -> std::io::Result<()> {
             .app_data(user_repository)
             .configure(controllers::api::service)
     })
-    .bind_rustls("127.0.0.1:8443", rustls_setup()).map_err(|e| Error::new(ErrorKind::Other, e))?
+    .bind_rustls("127.0.0.1:8443", rustls_setup())
+    .map_err(|e| Error::new(ErrorKind::Other, e))?
     .run()
     .await
 }
@@ -106,18 +111,21 @@ fn rustls_setup() -> ServerConfig {
     let key_path = dotenv!("KEY_PATH");
 
     // load TLS key/cert files
-    let cert_file = &mut BufReader::new(std::fs::File::open(cert_path).unwrap());
+    let cert_file =
+        &mut BufReader::new(std::fs::File::open(cert_path).unwrap());
     let key_file = &mut BufReader::new(std::fs::File::open(key_path).unwrap());
 
     // convert files to key/cert objects
-    let cert_chain = rustls_pemfile::certs(cert_file).unwrap()
+    let cert_chain = rustls_pemfile::certs(cert_file)
+        .unwrap()
         .into_iter()
         .map(Certificate)
         .collect();
-    let mut keys: Vec<PrivateKey> =
-        pkcs8_private_keys(key_file).unwrap().into_iter().map(PrivateKey).collect();
-
-    config
-        .with_single_cert(cert_chain, keys.remove(0))
+    let mut keys: Vec<PrivateKey> = pkcs8_private_keys(key_file)
         .unwrap()
+        .into_iter()
+        .map(PrivateKey)
+        .collect();
+
+    config.with_single_cert(cert_chain, keys.remove(0)).unwrap()
 }

@@ -1,9 +1,6 @@
 use crate::handler::cookie_handler::CookieHandler;
 use reqwest::{Client, Response};
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
-use shared::models::user::User;
-use std::error::Error;
+use serde::Serialize;
 use std::ops::Deref;
 use std::rc::Rc;
 
@@ -33,9 +30,10 @@ impl ApiHandler {
             .unwrap();
 
         ApiHandler {
-            api_client_wrapper: Rc::new(
-                ApiClientWrapper { client, cookie_store: cookie_store_handler }
-            ),
+            api_client_wrapper: Rc::new(ApiClientWrapper {
+                client,
+                cookie_store: cookie_store_handler,
+            }),
         }
     }
 

@@ -1,37 +1,32 @@
-use shared::models::user::SignInUser;
 use crate::handler::api_handler::ApiHandler;
+use crate::Route;
 use dioxus::prelude::*;
 use dioxus_router::prelude::use_navigator;
 use dioxus_router::prelude::Link;
-use crate::Route;
-
-
+use shared::models::user::SignInUser;
 
 pub(crate) fn SignIn(cx: Scope) -> Element {
-  let api_handler: &ApiHandler = use_context(cx).unwrap();
-  let navigator = use_navigator(cx);
+    let api_handler: &ApiHandler = use_context(cx).unwrap();
+    let navigator = use_navigator(cx);
 
-  let sign_in_handler = move |sign_in_user: SignInUser| {
-    to_owned![api_handler, navigator];
+    let sign_in_handler = move |sign_in_user: SignInUser| {
+        to_owned![api_handler, navigator];
 
-    cx.spawn(async move {
-      crate::api::auth::sign_in(&api_handler, sign_in_user).await;
-      navigator.replace(Route::TodoList {});
-    });
-  };
+        cx.spawn(async move {
+            crate::api::auth::sign_in(&api_handler, sign_in_user).await;
+            navigator.replace(Route::TodoList {});
+        });
+    };
 
-  render! {
+    render! {
         form {
             onsubmit: move |event| {
                 tracing::debug!("Encountered event: {:?}", event);
                 event.stop_propagation();
-
                 let email = event.values["email"].first().unwrap().to_string();
                 let password = event.values["password"].first().unwrap().to_string();
-
                 let all_values = event.values.clone();
                 tracing::debug!("{:?}", all_values);
-
                 sign_in_handler(SignInUser { email, password });
             },
             class: "p-6 grid",

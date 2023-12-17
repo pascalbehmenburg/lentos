@@ -10,3 +10,6 @@ authors = ["Pascal Behmenburg"]
 
 [profile.dev.package.backtrace]
 opt-level = 3
+
+[profile.dev.package.app_dirs2]
+opt-level = 3

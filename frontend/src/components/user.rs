@@ -9,8 +9,7 @@ pub(crate) fn User(cx: Scope) -> Element {
         to_owned![api_handler];
         async move {
             let response = api_handler.get("/users").await;
-            let user = response.json::<User>().await;
-            user
+            response.json::<User>().await
         }
     });
 
@@ -21,6 +20,6 @@ pub(crate) fn User(cx: Scope) -> Element {
             },
             Some(Err(e)) => rsx! { div { "Error: {e}" } },
             None => rsx! { div { "Loading user..." } },
-        },
+        }
     }
 }

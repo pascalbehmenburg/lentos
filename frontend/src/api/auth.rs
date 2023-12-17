@@ -56,5 +56,5 @@ pub(crate) async fn sign_up(
         password: sign_up_user.password,
     };
 
-    sign_in(&api_handler, sign_in_user).await;
+    sign_in(api_handler, sign_in_user).await;
 }

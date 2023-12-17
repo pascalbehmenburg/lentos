@@ -74,14 +74,13 @@ impl FromRequest for AuthUser {
         let identity = Identity::from_request(req, &mut Payload::None);
 
         let future = async move {
-            let identity =
-                identity.await.map_err(|_| {
-                    Error::External(
-                        StatusCode::UNAUTHORIZED,
-                        "You do not seem to be logged in. Please log in first."
-                            .into(),
-                    )
-                })?;
+            let identity = identity.await.map_err(|_| {
+                Error::External(
+                    StatusCode::UNAUTHORIZED,
+                    "You do not seem to be logged in. Please log in first."
+                        .into(),
+                )
+            })?;
             let id = Self::parse_identity_id(identity).await?;
             Ok(Self { id })
         };

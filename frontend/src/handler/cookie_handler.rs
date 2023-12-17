@@ -1,7 +1,6 @@
-use std::{fmt::Display, path::PathBuf, sync::Arc};
-
-use app_dirs2::{app_root, get_app_root, AppDataType};
+use app_dirs2::{app_root, AppDataType};
 use reqwest_cookie_store::{CookieStore, CookieStoreMutex};
+use std::{path::PathBuf, sync::Arc};
 
 use crate::handler::APP_INFO;
 

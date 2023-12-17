@@ -6,6 +6,7 @@ use dioxus_router::prelude::use_navigator;
 use dioxus_router::prelude::Link;
 use shared::models::user::CreateUser;
 
+#[component]
 pub(crate) fn SignUp(cx: Scope) -> Element {
     let api_handler: &ApiHandler = use_context(cx).unwrap();
     let navigator = use_navigator(cx);

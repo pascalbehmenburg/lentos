@@ -2,20 +2,18 @@ use dioxus::prelude::*;
 use dioxus_signals::{use_signal, Signal};
 use shared::models::todo::Todo;
 
-use crate::{api, components, handler::api_handler::ApiHandler};
+use crate::{api, components, handler::api_handler::ApiHandler, Message};
 
 #[component]
 pub(crate) fn TodoList(cx: Scope) -> Element {
     let error_handler: &Coroutine<crate::error::Error> =
         use_coroutine_handle(cx)?;
+    let message_handler: &Coroutine<Message> = use_coroutine_handle(cx)?;
     let api_handler: &ApiHandler = use_context(cx).unwrap();
     let todo_list: Signal<Vec<Signal<Todo>>> = use_signal(cx, Vec::new);
     let todo_item_is_edited: Signal<Option<i64>> = use_signal(cx, || None);
 
-    error_handler.send(crate::error::Error(
-        reqwest::StatusCode::ACCEPTED,
-        "This is an error.".into(),
-    ));
+    message_handler.send(Message("👋 Welcome back!".into()));
 
     let todo_list_future = use_future(cx, (), |_| {
         to_owned![api_handler, todo_list];

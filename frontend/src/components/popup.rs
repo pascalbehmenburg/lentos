@@ -10,7 +10,7 @@ pub fn MessagePopup(cx: Scope, message: String) -> Element {
         to_owned![message, message_handler];
         async move {
             async_std::task::sleep(std::time::Duration::from_secs(6)).await;
-            message_handler.send(Popup::Remove(message.to_string()));
+            message_handler.send(Popup::Pop(message.to_string()));
         }
     });
 
@@ -20,7 +20,7 @@ pub fn MessagePopup(cx: Scope, message: String) -> Element {
             button {
                 class: "rounded p-1 dark:bg-zinc-700 dark:hover:bg-zinc-600 bg-zinc-400 hover:bg-zinc-500",
                 onclick: move |_| {
-                    message_handler.send(Popup::Remove(message.to_string()));
+                    message_handler.send(Popup::Pop(message.to_string()));
                 },
                 span { class: "sr-only", "Close" }
                 svg {

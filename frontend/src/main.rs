@@ -192,7 +192,7 @@ fn BaseLayer(cx: Scope) -> Element {
 enum Popup {
     #[display(fmt = "{}", _0)]
     Push(String),
-    Remove(String),
+    Pop(String),
 }
 
 #[component]
@@ -207,7 +207,7 @@ fn PopupLayer(cx: Scope) -> Element {
                     Popup::Push(msg) => {
                         messages.write().insert(msg);
                     }
-                    Popup::Remove(msg) => {
+                    Popup::Pop(msg) => {
                         messages.write().remove(&msg);
                     }
                 }

@@ -1,5 +1,5 @@
 #![allow(non_snake_case)]
-use std::collections::VecDeque;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use app_dirs2::{app_root, AppDataType};
 
@@ -23,7 +23,7 @@ use components::todo_list::TodoList;
 use components::user::User;
 use handler::api_handler::ApiHandler;
 
-use crate::components::popup::Popup;
+use crate::components::popup::MessagePopup;
 
 fn main() {
     use tracing_error::ErrorLayer;
@@ -103,7 +103,7 @@ fn main() {
         .with_window_icon(None)
         .with_resizable(true)
         .with_inner_size(LogicalSize::new(390, 844))
-        .with_position(LogicalPosition::new(1920 - 390, 0))
+        .with_position(LogicalPosition::new(1440 - 390, 0))
         .with_focused(false)
         .with_menu(menu_bar); // unsupported on ios / android
 
@@ -146,7 +146,7 @@ fn main() {
 #[derive(Clone, Debug, PartialEq, Routable)]
 enum Route {
     #[layout(BaseLayer)]
-    #[layout(MessageLayer)]
+    #[layout(PopupLayer)]
     #[layout(ErrorLayer)]
     #[route("/")]
     AuthCheck {},
@@ -189,28 +189,38 @@ fn BaseLayer(cx: Scope) -> Element {
 }
 
 #[derive(Clone, Debug, PartialEq, derive_more::Display)]
-#[display(fmt = "{}", _0)]
-struct Message(String);
+enum Popup {
+    #[display(fmt = "{}", _0)]
+    Push(String),
+    Remove(String),
+}
 
 #[component]
-fn MessageLayer(cx: Scope) -> Element {
-    let message_queue = use_signal(cx, VecDeque::<Message>::new);
+fn PopupLayer(cx: Scope) -> Element {
+    let messages = use_signal(cx, HashSet::<String>::new);
 
-    use_coroutine(cx, |mut receiver: UnboundedReceiver<Message>| {
-        to_owned![message_queue];
+    use_coroutine(cx, |mut receiver: UnboundedReceiver<Popup>| {
+        to_owned![messages];
         async move {
-            while let Some(message) = receiver.next().await {
-                message_queue.write().push_back(message);
-                async_std::task::sleep(std::time::Duration::from_secs(5)).await;
-                message_queue.write().pop_front();
+            while let Some(command) = receiver.next().await {
+                match command {
+                    Popup::Push(msg) => {
+                        messages.write().insert(msg);
+                    }
+                    Popup::Remove(msg) => {
+                        messages.write().remove(&msg);
+                    }
+                }
             }
         }
     });
 
     render! {
         Outlet::<Route> {}
-        for msg in message_queue.read().iter() {
-            Popup { text: msg.to_string() }
+        ul { class: "fixed bottom-2 end-2 flex flex-col space-y-2 items-end",
+            for msg in messages.read().iter() {
+                li { class: "flex", MessagePopup { message: msg.clone() } }
+            }
         }
     }
 }
@@ -218,17 +228,16 @@ fn MessageLayer(cx: Scope) -> Element {
 #[component]
 fn ErrorLayer(cx: Scope) -> Element {
     let navigator = use_navigator(cx).clone();
-    let message_handler: &Coroutine<Message> =
-        use_coroutine_handle(cx).unwrap();
+    let popup_handler: &Coroutine<Popup> = use_coroutine_handle(cx).unwrap();
 
     use_coroutine(
         cx,
         |mut receiver: UnboundedReceiver<crate::error::Error>| {
-            to_owned![navigator, message_handler];
+            to_owned![navigator, popup_handler];
             async move {
                 while let Some(error) = receiver.next().await {
                     tracing::error!("{:?}", error);
-                    message_handler.send(Message(error.1.to_string()));
+                    popup_handler.send(Popup::Push(error.1.to_string()));
 
                     let redirect = match error.0 {
                         reqwest::StatusCode::UNAUTHORIZED => {
@@ -242,7 +251,7 @@ fn ErrorLayer(cx: Scope) -> Element {
                     });
 
                     if let Some(redirect_error_msg) = redirect {
-                        message_handler.send(Message(redirect_error_msg));
+                        popup_handler.send(Popup::Push(redirect_error_msg));
                     }
                 }
             }
@@ -257,13 +266,22 @@ fn AuthCheck(cx: Scope) -> Element {
     let api_handler: &ApiHandler =
         use_context(cx).expect("Failed to receive api handler.");
     let navigator = use_navigator(cx);
+    let message_handler: &Coroutine<Popup> = use_coroutine_handle(cx).unwrap();
 
     cx.spawn({
-        to_owned![api_handler, navigator];
+        to_owned![api_handler, navigator, message_handler];
         async move {
             let response = api_handler.get("/users").await;
 
             if response.status().is_success() {
+                let user = response
+                    .json::<shared::models::user::User>()
+                    .await
+                    .expect("Unable to read user data after login.");
+                message_handler.send(Popup::Push(format!(
+                    "👋 Welcome back, {}!",
+                    user.name
+                )));
                 navigator.replace(Route::TodoList {});
             } else if response.status() == StatusCode::UNAUTHORIZED {
                 navigator.replace(Route::SignIn {});

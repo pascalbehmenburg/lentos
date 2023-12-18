@@ -1,17 +1,27 @@
 use dioxus::prelude::*;
 
+use crate::Popup;
+
 #[component]
-pub fn Popup(cx: Scope, text: String) -> Element {
+pub fn MessagePopup(cx: Scope, message: String) -> Element {
+    let message_handler: &Coroutine<Popup> = use_coroutine_handle(cx).unwrap();
+
+    use_on_create(cx, || {
+        to_owned![message, message_handler];
+        async move {
+            async_std::task::sleep(std::time::Duration::from_secs(6)).await;
+            message_handler.send(Popup::Remove(message.to_string()));
+        }
+    });
+
     render! {
-        aside { class: "fixed bottom-4 end-4 z-50 flex items-center justify-center gap-4 rounded-lg bg-black px-5 py-3 text-white",
-            a {
-                href: "/new-thing",
-                target: "_blank",
-                rel: "noreferrer",
-                class: "text-sm font-medium hover:opacity-75",
-                "\n    {text}\n  "
-            }
-            button { class: "rounded bg-white/20 p-1 hover:bg-white/10",
+        aside { class: "flex items-center justify-center gap-4 rounded-lg dark:bg-zinc-800 px-5 py-3 border dark:border-zinc-500",
+            span { class: "text-sm font-medium", "\n    {message}\n  " }
+            button {
+                class: "rounded p-1 dark:bg-zinc-700 dark:hover:bg-zinc-600 bg-zinc-400 hover:bg-zinc-500",
+                onclick: move |_| {
+                    message_handler.send(Popup::Remove(message.to_string()));
+                },
                 span { class: "sr-only", "Close" }
                 svg {
                     fill: "currentColor",

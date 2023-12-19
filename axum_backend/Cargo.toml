@@ -1,0 +1,54 @@
+[package]
+name = "axum_backend"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+license-file.workspace = true
+authors.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+shared = { path = "../shared", features = ["backend"] }
+
+derive_more = "0.99.11"
+
+color-eyre = { version = "0.6.2", features = ["capture-spantrace"] }
+tracing = { version = "0.1" }
+tracing-error = "0.2.0"
+tracing-subscriber = { version = "0.3", default-features = true, features = [
+    "env-filter",
+    "registry",
+] }
+
+axum = { version = "0.7.2", features = [
+    "http2",
+    "json",
+    "matched-path",
+    "original-uri",
+    "tokio",
+    "form",
+    "macros",
+    "multipart",
+] }
+
+serde = "1.0"
+serde_json = "1.0.107"
+
+argon2 = { version = "0.5.2", features = ["std"] }
+rand = "0.8.4"
+listenfd = "1.0.1"
+
+hyper = { version = "1.0.0", features = ["full"] }
+hyper-util = { version = "0.1" }
+
+rustls-pemfile = "1.0.4"
+tokio-rustls = "0.24.1"
+
+tokio = { version = "1", features = ["full"] }
+
+async-trait = "0.1"
+futures-util = { version = "0.3", default-features = false }
+tower-service = "0.3.2"
+tower-http = { version = "0.5.0", features = ["trace"] }
+tower = { version = "0.4", features = ["make"] }

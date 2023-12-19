@@ -1,5 +1,5 @@
 [workspace]
-members = ["app", "bootstrap", "shared", "frontend"]
+members = ["app", "bootstrap", "shared", "frontend", "axum_backend"]
 resolver = "2"
 
 [workspace.package]

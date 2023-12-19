@@ -110,7 +110,7 @@ fn main() {
     let data_directory =
         app_root(AppDataType::UserConfig, &crate::handler::APP_INFO).unwrap();
 
-    static INDEX_HTML: &str = r#"
+    const INDEX_HTML: &str = r#"
         <!DOCTYPE html>
         <html class="h-full scroll-smooth" lang="en" dir="ltr">
 

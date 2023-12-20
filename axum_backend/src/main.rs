@@ -196,5 +196,5 @@ async fn handler() -> Html<&'static str> {
 }
 
 async fn handler_404() -> impl IntoResponse {
-    (StatusCode::NOT_FOUND, "nothing to see here")
+    (StatusCode::NOT_FOUND, "Error 404: Not found")
 }

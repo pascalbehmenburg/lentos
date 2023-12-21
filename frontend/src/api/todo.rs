@@ -115,6 +115,7 @@ pub(crate) async fn update_todo(
 // this does not ensure the correctness of the functions tested
 // but provides a way to run them without the dioxus context
 // also if they panic while testing something is wrong :)
+#[cfg(test)]
 mod tests {
     use super::*;
     use shared::models::todo::UpdateTodo;

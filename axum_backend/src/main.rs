@@ -1,23 +1,29 @@
+use async_trait::async_trait;
 use axum::{
-    extract::{Request, Host},
-    response::{Html, IntoResponse, Redirect},
+    extract::{FromRequest, Host, Request},
+    handler::HandlerWithoutStateExt,
+    response::{Html, IntoResponse, Redirect, Response},
     routing::get,
-    Router, handler::HandlerWithoutStateExt,
+    Form, Json, RequestExt, Router,
 };
 use futures_util::pin_mut;
-use hyper::{body::Incoming, StatusCode, Uri};
+use hyper::{body::Incoming, header::CONTENT_TYPE, StatusCode, Uri};
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use listenfd::ListenFd;
 use rustls_pemfile::{certs, pkcs8_private_keys};
-use std::{fs::File, io::BufReader, path::PathBuf, sync::Arc, panic::panic_any, net::SocketAddr};
+use std::{
+    fs::File, io::BufReader, panic::panic_any, path::PathBuf, sync::Arc,
+};
 use tokio::net::TcpListener;
 use tokio_rustls::{
     rustls::{Certificate, PrivateKey, ServerConfig},
     TlsAcceptor,
 };
+use tower_http::compression::CompressionLayer;
 use tower_service::Service;
 
-use color_eyre::eyre::{WrapErr, Result};
+use color_eyre::eyre::{Result, WrapErr};
+use std::borrow::Cow;
 
 #[derive(Clone, Copy)]
 struct Ports {
@@ -25,14 +31,25 @@ struct Ports {
     https: u16,
 }
 
+fn router() -> Router {
+    Router::new()
+        .layer(
+            // enforce brotli compression on all responses
+            CompressionLayer::new()
+                .br(true)
+                .compress_when(|_, _, _: &_, _: &_| true),
+        ).layer(tower_http::trace::TraceLayer::new_for_http())
+}
+
+fn add_routes(router: Router) -> Router {
+    router.route("/", get(handler)).fallback(handler_404)
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     const IP_ADDRESS: &str = "127.0.0.1";
 
-    let ports = Ports {
-        http: 8080,
-        https: 8443,
-    };
+    let ports = Ports { http: 8080, https: 8443 };
 
     // init tracing (logs) and error handling (color_eyre)
     {
@@ -68,7 +85,8 @@ async fn main() -> Result<()> {
     let rustls_config = {
         let cert_file_path = PathBuf::from("127.0.0.1+1.pem");
         let mut cert_reader = BufReader::new(
-            File::open(cert_file_path).wrap_err("Certificate file not found.")?,
+            File::open(cert_file_path)
+                .wrap_err("Certificate file not found.")?,
         );
 
         let key_file_path = PathBuf::from("127.0.0.1+1-key.pem");
@@ -94,7 +112,7 @@ async fn main() -> Result<()> {
             .with_single_cert(certs, key)
             .wrap_err("Failed to construct tls server config. Check the cert / key files.")?;
 
-        config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+        config.alpn_protocols = vec![b"h2".to_vec()];
 
         tracing::info!("TLS setup completed with config: {:?}", config);
 
@@ -112,7 +130,8 @@ async fn main() -> Result<()> {
                 parts.path_and_query = Some("/".parse().unwrap());
             }
 
-            let https_host = host.replace(&ports.http.to_string(), &ports.https.to_string());
+            let https_host =
+                host.replace(&ports.http.to_string(), &ports.https.to_string());
             parts.authority = Some(https_host.parse()?);
 
             Ok(Uri::from_parts(parts)?)
@@ -138,7 +157,12 @@ async fn main() -> Result<()> {
                     panic_any(color_eyre::eyre::eyre!("failed to bind systemfd tcp listener to adress using fallback: {:?}:{:?}", IP_ADDRESS, ports.http))
                 }),
             };
-        tracing::info!("Listening to http requests from {}", tcp_listener.local_addr().expect("Failed to get address of tcp listener"));
+        tracing::info!(
+            "Listening to http requests from {}",
+            tcp_listener
+                .local_addr()
+                .expect("Failed to get address of tcp listener")
+        );
         axum::serve(tcp_listener, redirect.into_make_service())
             .await
             .expect("Failed to serve http to https redirect service.");
@@ -155,18 +179,21 @@ async fn main() -> Result<()> {
         }),
     };
 
-    let app_router = Router::new().route("/", get(handler));
-    let app_router = app_router.fallback(handler_404);
-    let app_router = app_router.layer(tower_http::trace::TraceLayer::new_for_http());
+    let app_router = router();
+    let app_router = add_routes(app_router);
 
-    // we bind this here since rustls_config doesnt implement clone and we don't want to rebuild it
+    // we bind this here since rustls_config doesnt implement clone and we don't
+    // want to rebuild it
     let tls_acceptor = TlsAcceptor::from(rustls_config);
     pin_mut!(tcp_listener);
     loop {
         let app_service = app_router.clone();
         let tls_acceptor = tls_acceptor.clone();
 
-        let (conn, addr) = tcp_listener.accept().await.wrap_err("Failed to accept tcp connection.")?;
+        let (conn, addr) = tcp_listener
+            .accept()
+            .await
+            .wrap_err("Failed to accept tcp connection.")?;
 
         tokio::spawn(async move {
             // wait for tls handshake to happen
@@ -175,7 +202,8 @@ async fn main() -> Result<()> {
                 return;
             };
 
-            // convert the tokio stream to a hyper stream and forward the incoming requests to our axum app
+            // convert the tokio stream to a hyper stream and forward the
+            // incoming requests to our axum app
             let stream = TokioIo::new(stream);
             let hyper_service = hyper::service::service_fn(
                 move |request: Request<Incoming>| {
@@ -191,10 +219,134 @@ async fn main() -> Result<()> {
     }
 }
 
+struct JsonOrForm<T>(T);
+
+#[async_trait]
+impl<S, T> FromRequest<S> for JsonOrForm<T>
+where
+    S: Send + Sync,
+    Json<T>: FromRequest<()>,
+    Form<T>: FromRequest<()>,
+    T: 'static,
+{
+    type Rejection = Response;
+
+    async fn from_request(
+        req: Request,
+        _state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        let content_type_header = req.headers().get(CONTENT_TYPE);
+        let content_type =
+            content_type_header.and_then(|value| value.to_str().ok());
+
+        if let Some(content_type) = content_type {
+            if content_type.starts_with(mime::APPLICATION_JSON.as_ref()) {
+                let Json(payload) =
+                    req.extract().await.map_err(IntoResponse::into_response)?;
+                return Ok(Self(payload));
+            }
+
+            if content_type
+                .starts_with(mime::APPLICATION_WWW_FORM_URLENCODED.as_ref())
+            {
+                let Form(payload) =
+                    req.extract().await.map_err(IntoResponse::into_response)?;
+                return Ok(Self(payload));
+            }
+        }
+
+        Err(StatusCode::UNSUPPORTED_MEDIA_TYPE.into_response())
+    }
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct Payload {
+    name: String,
+}
+
+#[derive(Debug, derive_more::Display, derive_more::Error)]
+pub enum Error {
+    #[display(fmt = "Error {}: {}", _0, _1)]
+    External(StatusCode, Cow<'static, str>),
+
+    #[display(fmt = "{}", _0)]
+    Internal(#[error(not(source))] color_eyre::eyre::Error),
+}
+
+impl IntoResponse for Error {
+    fn into_response(self) -> Response {
+        match self {
+            Error::External(status_code, error_message) => {
+                tracing::warn!("{}{}", status_code, error_message);
+                (status_code, error_message.to_string()).into_response()
+            }
+            Error::Internal(error) => {
+                tracing::warn!("{}", error.to_string());
+                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+                    .into_response()
+            }
+        }
+    }
+}
+
 async fn handler() -> Html<&'static str> {
     Html("<h1>Hello, World!</h1>")
 }
 
 async fn handler_404() -> impl IntoResponse {
     (StatusCode::NOT_FOUND, "Error 404: Not found")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{body::Body, http, routing::post};
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn test_json_or_form_extractor() {
+        let router = router();
+        let router = router.route(
+            "/test",
+            post(|JsonOrForm(payload): JsonOrForm<Payload>| async move {
+                (StatusCode::OK, format!("We got data: {payload:?}"));
+            }),
+        );
+
+        let request = Request::builder()
+            .method(http::Method::POST)
+            .uri("/test")
+            .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+            .body(Body::from(
+                serde_json::to_string(&Payload {
+                    name: "MemeJson".to_string(),
+                })
+                .unwrap(),
+            ))
+            .unwrap();
+
+        let response = router.clone().oneshot(request).await.unwrap();
+
+        println!("{:?}", response);
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let request = Request::builder()
+            .method(http::Method::POST)
+            .uri("/test")
+            .header(
+                http::header::CONTENT_TYPE,
+                mime::APPLICATION_WWW_FORM_URLENCODED.as_ref(),
+            )
+            .body(Body::from(
+                serde_urlencoded::to_string(Payload {
+                    name: "MemeForm".to_string(),
+                })
+                .unwrap(),
+            ))
+            .unwrap();
+
+        let response = router.oneshot(request).await.unwrap();
+        println!("{:?}", response);
+        assert_eq!(response.status(), StatusCode::OK);
+    }
 }

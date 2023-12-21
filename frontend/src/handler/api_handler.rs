@@ -22,6 +22,7 @@ impl ApiHandler {
         let client = Client::builder()
             .cookie_store(true)
             .cookie_provider(cookie_store)
+            .brotli(true)
             .http2_prior_knowledge()
             .https_only(true)
             .use_rustls_tls()

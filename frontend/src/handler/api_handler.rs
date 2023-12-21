@@ -1,8 +1,10 @@
-use crate::handler::cookie_handler::CookieHandler;
-use reqwest::{Client, Response};
-use serde::Serialize;
 use std::ops::Deref;
 use std::rc::Rc;
+
+use reqwest::{Client, Response};
+use serde::Serialize;
+
+use crate::handler::cookie_handler::CookieHandler;
 
 pub(crate) const BASE_URL: &str = "https://localhost:8443/api/v1";
 

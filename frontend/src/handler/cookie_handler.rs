@@ -1,6 +1,7 @@
+use std::{path::PathBuf, sync::Arc};
+
 use app_dirs2::{app_root, AppDataType};
 use reqwest_cookie_store::{CookieStore, CookieStoreMutex};
-use std::{path::PathBuf, sync::Arc};
 
 use crate::handler::APP_INFO;
 
@@ -46,7 +47,8 @@ impl CookieHandler {
 
     pub fn save(&self) {
         tracing::debug!(
-            "Saving cookie store to user dir with following contents: {:?} to {:?}",
+            "Saving cookie store to user dir with following contents: {:?} to \
+             {:?}",
             self.cookie_store.lock().unwrap(),
             self.cookie_store_path
         );

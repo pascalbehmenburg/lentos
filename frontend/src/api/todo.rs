@@ -1,6 +1,7 @@
-use crate::handler::api_handler::{ApiHandler, BASE_URL};
 use reqwest::StatusCode;
 use shared::models::todo::{CreateTodo, Todo, UpdateTodo};
+
+use crate::handler::api_handler::{ApiHandler, BASE_URL};
 
 pub(crate) async fn create_todo(
     api_handler: &ApiHandler,
@@ -117,9 +118,10 @@ pub(crate) async fn update_todo(
 // also if they panic while testing something is wrong :)
 #[cfg(test)]
 mod tests {
-    use super::*;
     use shared::models::todo::UpdateTodo;
     use tracing_test::traced_test;
+
+    use super::*;
 
     #[test]
     #[traced_test]

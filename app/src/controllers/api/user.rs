@@ -1,10 +1,8 @@
 use actix_http::StatusCode;
-
 use actix_web::{
     web::{self, Json, ServiceConfig},
     HttpRequest, HttpResponse,
 };
-
 use shared::models::user::{CreateUser, SignInUser, UpdateUser, User};
 
 use crate::{

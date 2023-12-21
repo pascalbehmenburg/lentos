@@ -1,6 +1,7 @@
-use crate::handler::api_handler::ApiHandler;
 use dioxus::prelude::*;
 use shared::models::user::User;
+
+use crate::handler::api_handler::ApiHandler;
 
 #[component]
 pub(crate) fn User(cx: Scope) -> Element {

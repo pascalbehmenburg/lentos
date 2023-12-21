@@ -31,26 +31,10 @@ axum = { version = "0.7.2", features = [
     "macros",
     "multipart",
 ] }
-
-serde = "1.0"
-serde_json = "1.0.107"
-serde_urlencoded = "0.7.0"
-
-argon2 = { version = "0.5.2", features = ["std"] }
-rand = "0.8.4"
-listenfd = "1.0.1"
-
 hyper = { version = "1.0.0", features = ["full"] }
 hyper-util = { version = "0.1" }
+mime = "0.3.16"
 
-rustls-pemfile = "1.0.4"
-tokio-rustls = "0.24.1"
-
-tokio = { version = "1", features = ["full"] }
-
-
-async-trait = "0.1"
-futures-util = { version = "0.3", default-features = false }
 tower-service = "0.3.2"
 tower-http = { version = "0.5.0", features = [
     "trace",
@@ -58,4 +42,27 @@ tower-http = { version = "0.5.0", features = [
     "decompression-full",
 ] }
 tower = { version = "0.4", features = ["make"] }
-mime = "0.3.16"
+
+serde = "1.0"
+serde_json = "1.0.107"
+serde_urlencoded = "0.7.0"
+
+argon2 = { version = "0.5.2", features = ["std"] }
+rand = "0.8.4"
+
+rustls-pemfile = "1.0.4"
+tokio-rustls = "0.24.1"
+
+listenfd = "1.0.1"
+tokio = { version = "1", features = ["full"] }
+async-trait = "0.1"
+futures-util = { version = "0.3", default-features = false }
+
+sqlx = { version = "0.7.1", default-features = false, features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "macros",
+    "postgres",
+    "uuid",
+    "chrono",
+] }

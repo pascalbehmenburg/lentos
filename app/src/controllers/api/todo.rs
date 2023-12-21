@@ -1,12 +1,13 @@
-use crate::{
-    controllers::common::AuthUser, repository::todo::TodoRepository,
-    util::error_or::ErrorOr,
-};
 use actix_web::{
     web::{self, Json, ServiceConfig},
     HttpResponse,
 };
 use shared::models::todo::{CreateTodo, Todo, UpdateTodo};
+
+use crate::{
+    controllers::common::AuthUser, repository::todo::TodoRepository,
+    util::error_or::ErrorOr,
+};
 
 pub fn service<R: TodoRepository>(cfg: &mut ServiceConfig) {
     cfg.service(

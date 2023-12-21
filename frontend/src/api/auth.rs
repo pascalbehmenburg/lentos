@@ -1,5 +1,6 @@
-use crate::handler::api_handler::ApiHandler;
 use shared::models::user::{CreateUser, SignInUser};
+
+use crate::handler::api_handler::ApiHandler;
 
 pub(crate) async fn sign_in(
     api_handler: &ApiHandler,

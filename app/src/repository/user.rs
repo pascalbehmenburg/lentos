@@ -1,8 +1,7 @@
 use shared::models::user::{CreateUser, UpdateUser, User};
 
-use crate::util::error_or::ErrorOr;
-
 use super::error::{Operation, RepositoryError};
+use crate::util::error_or::ErrorOr;
 
 const RELATION: &str = "User";
 

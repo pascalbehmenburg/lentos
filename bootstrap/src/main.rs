@@ -10,7 +10,6 @@ use actix_web::{
     middleware::{self, Compat},
     App, HttpServer,
 };
-
 use app::{
     controllers::{self},
     repository::{

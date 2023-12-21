@@ -7,14 +7,12 @@ use argon2::{
     password_hash::SaltString, Argon2, PasswordHash, PasswordHasher,
     PasswordVerifier,
 };
-
 use futures_core::Future;
 use rand::rngs::OsRng;
 use shared::models::user::{SignInUser, User};
 
-use crate::util::{error::Error, error_or::ErrorOr};
-
 use super::api::user::UserError;
+use crate::util::{error::Error, error_or::ErrorOr};
 // TODO maybe create auth trait
 
 /// Logs in a user by verifying their password and setting a session cookie.

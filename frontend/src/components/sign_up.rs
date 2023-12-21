@@ -1,10 +1,11 @@
-use crate::api::auth::sign_up;
-use crate::handler::api_handler::ApiHandler;
-use crate::Route;
 use dioxus::prelude::*;
 use dioxus_router::prelude::use_navigator;
 use dioxus_router::prelude::Link;
 use shared::models::user::CreateUser;
+
+use crate::api::auth::sign_up;
+use crate::handler::api_handler::ApiHandler;
+use crate::Route;
 
 #[component]
 pub(crate) fn SignUp(cx: Scope) -> Element {

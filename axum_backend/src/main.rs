@@ -1,3 +1,8 @@
+use std::borrow::Cow;
+use std::{
+    fs::File, io::BufReader, panic::panic_any, path::PathBuf, sync::Arc,
+};
+
 use async_trait::async_trait;
 use axum::{
     extract::{FromRequest, Host, Request},
@@ -6,14 +11,12 @@ use axum::{
     routing::get,
     Form, Json, RequestExt, Router,
 };
+use color_eyre::eyre::{Result, WrapErr};
 use futures_util::pin_mut;
 use hyper::{body::Incoming, header::CONTENT_TYPE, StatusCode, Uri};
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use listenfd::ListenFd;
 use rustls_pemfile::{certs, pkcs8_private_keys};
-use std::{
-    fs::File, io::BufReader, panic::panic_any, path::PathBuf, sync::Arc,
-};
 use tokio::net::TcpListener;
 use tokio_rustls::{
     rustls::{Certificate, PrivateKey, ServerConfig},
@@ -21,9 +24,6 @@ use tokio_rustls::{
 };
 use tower_http::compression::CompressionLayer;
 use tower_service::Service;
-
-use color_eyre::eyre::{Result, WrapErr};
-use std::borrow::Cow;
 
 #[derive(Clone, Copy)]
 struct Ports {
@@ -38,10 +38,19 @@ fn router() -> Router {
             CompressionLayer::new()
                 .br(true)
                 .compress_when(|_, _, _: &_, _: &_| true),
-        ).layer(tower_http::trace::TraceLayer::new_for_http())
+        )
+        .layer(tower_http::trace::TraceLayer::new_for_http())
 }
 
 fn add_routes(router: Router) -> Router {
+    async fn handler() -> Html<&'static str> {
+        Html("<h1>Hello, World!</h1>")
+    }
+
+    async fn handler_404() -> impl IntoResponse {
+        (StatusCode::NOT_FOUND, "Error 404: Not found")
+    }
+
     router.route("/", get(handler)).fallback(handler_404)
 }
 
@@ -96,7 +105,10 @@ async fn main() -> Result<()> {
 
         let key = PrivateKey(
             pkcs8_private_keys(&mut key_reader)
-                .wrap_err("Failed to construct pkcs8 private key. Check the key file.")?
+                .wrap_err(
+                    "Failed to construct pkcs8 private key. Check the key \
+                     file.",
+                )?
                 .remove(0),
         );
 
@@ -110,7 +122,10 @@ async fn main() -> Result<()> {
             .with_safe_defaults()
             .with_no_client_auth()
             .with_single_cert(certs, key)
-            .wrap_err("Failed to construct tls server config. Check the cert / key files.")?;
+            .wrap_err(
+                "Failed to construct tls server config. Check the cert / key \
+                 files.",
+            )?;
 
         config.alpn_protocols = vec![b"h2".to_vec()];
 
@@ -151,12 +166,21 @@ async fn main() -> Result<()> {
         let tcp_listener = match listenfd
             .take_tcp_listener(0)
             .expect("fd at position 0 was not an tcp listener")
-            {
-                Some(tcp_listener) => TcpListener::from_std(tcp_listener).expect(""),
-                None => TcpListener::bind(format!("{}:{}", IP_ADDRESS, ports.http)).await.unwrap_or_else(|_| {
-                    panic_any(color_eyre::eyre::eyre!("failed to bind systemfd tcp listener to adress using fallback: {:?}:{:?}", IP_ADDRESS, ports.http))
+        {
+            Some(tcp_listener) => {
+                TcpListener::from_std(tcp_listener).expect("")
+            }
+            None => TcpListener::bind(format!("{}:{}", IP_ADDRESS, ports.http))
+                .await
+                .unwrap_or_else(|_| {
+                    panic_any(color_eyre::eyre::eyre!(
+                        "failed to bind systemfd tcp listener to adress using \
+                         fallback: {:?}:{:?}",
+                        IP_ADDRESS,
+                        ports.http
+                    ))
                 }),
-            };
+        };
         tracing::info!(
             "Listening to http requests from {}",
             tcp_listener
@@ -174,9 +198,15 @@ async fn main() -> Result<()> {
         .wrap_err("fd at position 1 was not an tcp listener")?
     {
         Some(tcp_listener) => TcpListener::from_std(tcp_listener).expect(""),
-        None => TcpListener::bind(format!("{}:{}", IP_ADDRESS, ports.https)).await.unwrap_or_else(|_| {
-            panic_any(color_eyre::eyre::eyre!("failed to bind systemfd tcp listener to adress using fallback: {:?}", IP_ADDRESS))
-        }),
+        None => TcpListener::bind(format!("{}:{}", IP_ADDRESS, ports.https))
+            .await
+            .unwrap_or_else(|_| {
+                panic_any(color_eyre::eyre::eyre!(
+                    "failed to bind systemfd tcp listener to adress using \
+                     fallback: {:?}",
+                    IP_ADDRESS
+                ))
+            }),
     };
 
     let app_router = router();
@@ -259,11 +289,6 @@ where
     }
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-struct Payload {
-    name: String,
-}
-
 #[derive(Debug, derive_more::Display, derive_more::Error)]
 pub enum Error {
     #[display(fmt = "Error {}: {}", _0, _1)]
@@ -289,22 +314,20 @@ impl IntoResponse for Error {
     }
 }
 
-async fn handler() -> Html<&'static str> {
-    Html("<h1>Hello, World!</h1>")
-}
-
-async fn handler_404() -> impl IntoResponse {
-    (StatusCode::NOT_FOUND, "Error 404: Not found")
-}
-
 #[cfg(test)]
 mod tests {
-    use super::*;
     use axum::{body::Body, http, routing::post};
     use tower::ServiceExt;
 
+    use super::*;
+
     #[tokio::test]
     async fn test_json_or_form_extractor() {
+        #[derive(Debug, serde::Serialize, serde::Deserialize)]
+        struct Payload {
+            name: String,
+        }
+
         let router = router();
         let router = router.route(
             "/test",

@@ -1,9 +1,10 @@
-use crate::handler::api_handler::ApiHandler;
-use crate::Route;
 use dioxus::prelude::*;
 use dioxus_router::prelude::use_navigator;
 use dioxus_router::prelude::Link;
 use shared::models::user::SignInUser;
+
+use crate::handler::api_handler::ApiHandler;
+use crate::Route;
 
 #[component]
 pub(crate) fn SignIn(cx: Scope) -> Element {

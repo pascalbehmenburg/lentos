@@ -2,7 +2,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use app_dirs2::{app_root, AppDataType};
-
 use async_std::stream::StreamExt;
 use dioxus::prelude::*;
 use dioxus_desktop::tao::dpi::LogicalPosition;

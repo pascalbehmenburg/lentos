@@ -1,9 +1,10 @@
-use crate::api::*;
-use crate::components::check_box::CheckBox;
-use crate::handler::api_handler::ApiHandler;
 use dioxus::prelude::*;
 use dioxus_signals::Signal;
 use shared::models::todo::{Todo, UpdateTodo};
+
+use crate::api::*;
+use crate::components::check_box::CheckBox;
+use crate::handler::api_handler::ApiHandler;
 
 #[component]
 pub(crate) fn Todo(

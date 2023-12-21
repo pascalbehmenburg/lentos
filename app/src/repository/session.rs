@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use actix_session::storage::{
     LoadError, SaveError, SessionKey, SessionStore, UpdateError,
 };
@@ -5,7 +7,6 @@ use actix_web::cookie::time::Duration;
 use anyhow::Context;
 use rand::{distributions::Alphanumeric, rngs::OsRng, Rng};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// This struct is used to represent a actix session in a sql database
 /// in this case postgresql using the following sql schema:
@@ -251,7 +252,10 @@ impl SessionStore for PostgresSessionRepository {
             .db_delete(session_key)
             .await
             .map_err(anyhow::Error::from)
-            .context("Some psql error occurred when trying to delete session from db.");
+            .context(
+                "Some psql error occurred when trying to delete session from \
+                 db.",
+            );
 
         return db_response;
     }

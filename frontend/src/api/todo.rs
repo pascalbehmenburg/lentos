@@ -3,6 +3,7 @@ use shared::models::todo::{CreateTodo, Todo, UpdateTodo};
 
 use crate::handler::api_handler::{ApiHandler, BASE_URL};
 
+#[allow(dead_code)]
 pub(crate) async fn create_todo(
     api_handler: &ApiHandler,
     create_todo: CreateTodo,
@@ -43,6 +44,7 @@ pub(crate) async fn get_all_todos(api_handler: &ApiHandler) -> Vec<Todo> {
     todos
 }
 
+#[allow(dead_code)]
 pub(crate) async fn get_todo(api_handler: &ApiHandler, todo_id: &i64) -> Todo {
     tracing::debug!("Trying to get todo with id: {todo_id}...");
 
@@ -64,6 +66,7 @@ pub(crate) async fn get_todo(api_handler: &ApiHandler, todo_id: &i64) -> Todo {
     todo
 }
 
+#[allow(dead_code)]
 pub(crate) async fn delete_todo(api_handler: &ApiHandler, todo_id: &i64) {
     tracing::debug!("Trying to delete todo with id: {todo_id}...");
     let response = api_handler

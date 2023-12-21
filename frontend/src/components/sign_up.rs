@@ -12,11 +12,11 @@ pub(crate) fn SignUp(cx: Scope) -> Element {
     let api_handler: &ApiHandler = use_context(cx).unwrap();
     let navigator = use_navigator(cx);
 
-    let sign_up_handler = move |createUser: CreateUser| {
+    let sign_up_handler = move |create_user: CreateUser| {
         to_owned![api_handler, navigator];
 
         cx.spawn(async move {
-            sign_up(&api_handler, createUser).await;
+            sign_up(&api_handler, create_user).await;
             navigator.replace(Route::TodoList {});
         });
     };

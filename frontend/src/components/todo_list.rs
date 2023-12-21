@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 use dioxus_signals::{use_signal, Signal};
 use shared::models::todo::Todo;
 
-use crate::{api, components, handler::api_handler::ApiHandler, Popup};
+use crate::{api, components, handler::api_handler::ApiHandler};
 
 #[component]
 pub(crate) fn TodoList(cx: Scope) -> Element {

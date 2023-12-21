@@ -194,6 +194,6 @@ mod tests {
             is_done: Some(true),
         };
 
-        rt.block_on(update_todo(&api_handler, &update_todo_data.id));
+        rt.block_on(update_todo(&api_handler, update_todo_data));
     }
 }

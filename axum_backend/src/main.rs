@@ -11,7 +11,6 @@ use axum::{
     routing::get,
     Form, Json, RequestExt, Router,
 };
-use color_eyre::eyre::{Result, WrapErr};
 use futures_util::pin_mut;
 use hyper::{body::Incoming, header::CONTENT_TYPE, StatusCode, Uri};
 use hyper_util::rt::{TokioExecutor, TokioIo};
@@ -288,26 +287,60 @@ where
         Err(StatusCode::UNSUPPORTED_MEDIA_TYPE.into_response())
     }
 }
+pub type Result<T, E = Error> = std::result::Result<T, E>;
 
-#[derive(Debug, derive_more::Display, derive_more::Error)]
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[display(fmt = "Error {}: {}", _0, _1)]
-    External(StatusCode, Cow<'static, str>),
+    #[error("{0}, {1}")]
+    ResponseError(StatusCode, &'static str),
 
-    #[display(fmt = "{}", _0)]
-    Internal(#[error(not(source))] color_eyre::eyre::Error),
+    #[error("{0}")]
+    InternalError(&'static str),
+
+    // fallback error which is treated like an internal error
+    #[error(transparent)]
+    Other(#[from] color_eyre::eyre::Error),
+}
+
+#[macro_export]
+macro_rules! custom_error {
+    ($msg:literal $(,)?) => {
+        Err(Error::InternalError(format!($msg)))
+    };
+    ($err:expr $(,)?) => {
+        Err(Error::from($err))
+    };
+    ($fmt:expr, $($arg:tt)*) => {
+        Err(Error::InternalError(format!($fmt, $($arg)*)))
+    };
+}
+
+// Use this macro to return an explicit error for the user
+#[macro_export]
+macro_rules! response_error {
+    ($status:expr, $msg:literal $(,)?) => {
+        Err(Error::ResponseError($status, format!($msg)))
+    };
+    ($status:expr, $fmt:expr, $($arg:tt)*) => {
+        Err(Error::ResponseError($status, format!($fmt, $($arg)*)))
+    };
 }
 
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         match self {
-            Error::External(status_code, error_message) => {
-                tracing::warn!("{}{}", status_code, error_message);
+            Error::ResponseError(status_code, error_message) => {
+                // Expected user caused errors are logged on info level
+                tracing::info!("{}{}", status_code, error_message);
                 (status_code, error_message.to_string()).into_response()
             }
-            Error::Internal(error) => {
-                tracing::warn!("{}", error.to_string());
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+            _ => {
+                // Unexpected errors are logged on error level
+                tracing::error!("{:?}", self);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Error 500: Something went wrong! We're working on it.",
+                )
                     .into_response()
             }
         }

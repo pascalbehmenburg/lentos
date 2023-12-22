@@ -11,7 +11,7 @@ authors.workspace = true
 [dependencies]
 shared = { path = "../shared", features = ["backend"] }
 
-derive_more = "0.99.11"
+thiserror = "1.0.30"
 
 color-eyre = { version = "0.6.2", features = ["capture-spantrace"] }
 tracing = { version = "0.1" }
@@ -66,3 +66,6 @@ sqlx = { version = "0.7.1", default-features = false, features = [
     "uuid",
     "chrono",
 ] }
+
+app_dirs2 = "2.5.5"
+toml = "0.8.8"

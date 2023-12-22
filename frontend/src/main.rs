@@ -1,5 +1,5 @@
 #![allow(non_snake_case)]
-use std::collections::{HashSet};
+use std::collections::HashSet;
 
 use app_dirs2::{app_root, AppDataType};
 use async_std::stream::StreamExt;

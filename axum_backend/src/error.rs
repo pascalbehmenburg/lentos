@@ -22,13 +22,13 @@ pub enum Error {
 #[macro_export]
 macro_rules! internal_error {
     ($msg:literal $(,)?) => {
-        Error::InternalError(format!($msg))
+        $crate::Error::InternalError(format!($msg))
     };
     ($err:expr $(,)?) => {
-        Error::from($err)
+        $crate::Error::from($err)
     };
     ($fmt:expr, $($arg:tt)*) => {
-        Error::InternalError(format!($fmt, $($arg)*))
+        $crate::Error::InternalError(format!($fmt, $($arg)*))
     };
 }
 
@@ -36,10 +36,10 @@ macro_rules! internal_error {
 #[macro_export]
 macro_rules! response_error {
     ($status:expr, $msg:literal $(,)?) => {
-        Error::ResponseError($status, format!($msg))
+        $crate::Error::ResponseError($status, format!($msg))
     };
     ($status:expr, $fmt:expr, $($arg:tt)*) => {
-        Error::ResponseError($status, format!($fmt, $($arg)*))
+        $crate::Error::ResponseError($status, format!($fmt, $($arg)*))
     };
 }
 

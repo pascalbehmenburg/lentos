@@ -24,7 +24,7 @@ error_on_line_overflow = true
 error_on_unformatted = true
 
 # some personal preferences
-max_width = 80
+max_width = 100
 tab_spaces = 4
 hard_tabs = false
 

@@ -8,41 +8,21 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    // used for errors which should be displayed in a response
     #[error("{0}, {1}")]
     ResponseError(StatusCode, String),
 
+    // used for errors which should not be displayed in a response
     #[error("{0}")]
     InternalError(String),
 
-    // fallback error which is treated like an internal error
+    // fallback error
     #[error(transparent)]
     Other(#[from] color_eyre::eyre::Error),
 }
 
-#[macro_export]
-macro_rules! internal_error {
-    ($msg:literal $(,)?) => {
-        $crate::Error::InternalError(format!($msg))
-    };
-    ($err:expr $(,)?) => {
-        $crate::Error::from($err)
-    };
-    ($fmt:expr, $($arg:tt)*) => {
-        $crate::Error::InternalError(format!($fmt, $($arg)*))
-    };
-}
-
-// Use this macro to return an explicit error for the user
-#[macro_export]
-macro_rules! response_error {
-    ($status:expr, $msg:literal $(,)?) => {
-        $crate::Error::ResponseError($status, format!($msg))
-    };
-    ($status:expr, $fmt:expr, $($arg:tt)*) => {
-        $crate::Error::ResponseError($status, format!($fmt, $($arg)*))
-    };
-}
-
+// We use a JSON response so that the frontend may re-use ResponseError
+// messages. Otherwise we just return a generic error message.
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -70,4 +50,30 @@ impl IntoResponse for Error {
             }
         }
     }
+}
+
+// Use this macro to return an any error which should not be displayed in a
+// response
+#[macro_export]
+macro_rules! internal_error {
+    ($msg:literal $(,)?) => {
+        $crate::Error::InternalError(format!($msg))
+    };
+    ($err:expr $(,)?) => {
+        $crate::Error::from($err)
+    };
+    ($fmt:expr, $($arg:tt)*) => {
+        $crate::Error::InternalError(format!($fmt, $($arg)*))
+    };
+}
+
+// Use this macro to return an explicit error for the user
+#[macro_export]
+macro_rules! response_error {
+    ($status:expr, $msg:literal $(,)?) => {
+        $crate::Error::ResponseError($status, format!($msg))
+    };
+    ($status:expr, $fmt:expr, $($arg:tt)*) => {
+        $crate::Error::ResponseError($status, format!($fmt, $($arg)*))
+    };
 }

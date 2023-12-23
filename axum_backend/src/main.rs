@@ -1,6 +1,5 @@
 use std::{fs::File, io::BufReader, panic::panic_any, path::PathBuf, sync::Arc};
 
-use app_dirs2::{app_root, AppDataType, AppInfo};
 use async_trait::async_trait;
 use axum::{
     extract::{FromRequest, Host, Request},

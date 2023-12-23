@@ -22,41 +22,11 @@ use tokio_rustls::{
 use tower_http::compression::CompressionLayer;
 use tower_service::Service;
 
+mod config;
 mod error;
+use config::BackendConfig;
 pub use error::Error;
 use error::Result;
-
-// TODO implement default
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-struct BackendConfig {
-    pub ip_address: String,
-    pub http_port: u16,
-    pub https_port: u16,
-    pub cert_file_path: PathBuf,
-    pub key_file_path: PathBuf,
-    pub database_url: String,
-    pub signing_key: String,
-}
-
-fn load_config() -> Result<BackendConfig> {
-    const APP_INFO: AppInfo = AppInfo { name: "lentos_backend", author: "lentos" };
-
-    let config_path = app_root(AppDataType::UserConfig, &APP_INFO)
-        .map_err(|e| internal_error!("User config directory not found. Details: {}", e))?
-        .join("Config.toml");
-
-    if !config_path.exists() {
-        return Err(internal_error!(
-            "Backend config not found. Details: {}",
-            config_path.display()
-        ));
-    }
-
-    toml::from_str::<BackendConfig>(&std::fs::read_to_string(config_path).map_err(|e| {
-        internal_error!("Backend config has bad encoding. Ensure it is UTF-8. Details: {}", e)
-    })?)
-    .map_err(|err| internal_error!("Failed to parse backend config. Details: {}", err))
-}
 
 fn router() -> Router {
     Router::new()
@@ -81,7 +51,7 @@ fn add_routes(router: Router) -> Router {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let config = load_config()?;
+    let config = BackendConfig::load().await?;
 
     // init tracing (logs) and error handling (color_eyre)
     {

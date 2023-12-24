@@ -4,9 +4,8 @@ use async_trait::async_trait;
 use axum::{
     extract::{FromRequest, Host, Request},
     handler::HandlerWithoutStateExt,
-    response::{Html, IntoResponse, Redirect, Response},
-    routing::get,
-    Form, Json, RequestExt, Router,
+    response::{IntoResponse, Redirect, Response},
+    Form, Json, RequestExt,
 };
 use futures_util::pin_mut;
 use hyper::{body::Incoming, header::CONTENT_TYPE, StatusCode, Uri};
@@ -18,35 +17,15 @@ use tokio_rustls::{
     rustls::{Certificate, PrivateKey, ServerConfig},
     TlsAcceptor,
 };
-use tower_http::compression::CompressionLayer;
-use tower_service::Service;
 
 mod config;
 mod error;
+mod routes;
 use config::BackendConfig;
 pub use error::Error;
 use error::Result;
-
-fn router() -> Router {
-    Router::new()
-        .layer(
-            // enforce brotli compression on all responses
-            CompressionLayer::new().br(true).compress_when(|_, _, _: &_, _: &_| true),
-        )
-        .layer(tower_http::trace::TraceLayer::new_for_http())
-}
-
-fn add_routes(router: Router) -> Router {
-    async fn handler() -> Html<&'static str> {
-        Html("<h1>Hello, World!</h1>")
-    }
-
-    async fn handler_404() -> impl IntoResponse {
-        response_error!(StatusCode::NOT_FOUND, "Error 404: Not found")
-    }
-
-    router.route("/", get(handler)).fallback(handler_404)
-}
+use routes::router::Router;
+use tower_service::Service;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -206,15 +185,14 @@ async fn main() -> Result<()> {
             }),
     };
 
-    let app_router = router();
-    let app_router = add_routes(app_router);
+    let app_router = Router::new().with_routes();
 
     // we bind this here since rustls_config doesnt implement clone and we don't
     // want to rebuild it
     let tls_acceptor = TlsAcceptor::from(rustls_config);
     pin_mut!(tcp_listener);
     loop {
-        let app_service = app_router.clone();
+        let app_service = app_router.deref().clone();
         let tls_acceptor = tls_acceptor.clone();
 
         let (conn, addr) = tcp_listener.accept().await.map_err(|e| {
@@ -289,8 +267,8 @@ mod tests {
             name: String,
         }
 
-        let router = router();
-        let router = router.route(
+        let router = crate::routes::router::Router::new();
+        let router = router.0.route(
             "/test",
             post(|JsonOrForm(payload): JsonOrForm<Payload>| async move {
                 (StatusCode::OK, format!("We got data: {payload:?}"));

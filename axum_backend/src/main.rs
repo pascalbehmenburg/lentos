@@ -1,4 +1,4 @@
-use std::{fs::File, io::BufReader, panic::panic_any, path::PathBuf, sync::Arc};
+use std::{fs::File, io::BufReader, ops::Deref, panic::panic_any, sync::Arc};
 
 use async_trait::async_trait;
 use axum::{
@@ -82,13 +82,13 @@ async fn main() -> Result<()> {
 
     // this sets up the tls config
     let rustls_config = {
-        let cert_file_path = PathBuf::from(config.cert_file_path);
+        let cert_file_path = config.cert_file_path;
         let mut cert_reader = BufReader::new(
             File::open(cert_file_path)
                 .map_err(|_| internal_error!("Certificate file not found."))?,
         );
 
-        let key_file_path = PathBuf::from(config.key_file_path);
+        let key_file_path = config.key_file_path;
         let mut key_reader = BufReader::new(
             File::open(key_file_path).map_err(|_| internal_error!("Key file not found."))?,
         );

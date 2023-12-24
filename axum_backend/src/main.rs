@@ -1,4 +1,4 @@
-use std::{fs::File, io::BufReader, ops::Deref, panic::panic_any, sync::Arc};
+use std::{fs::File, io::BufReader, panic::panic_any, sync::Arc};
 
 use async_trait::async_trait;
 use axum::{
@@ -24,22 +24,19 @@ mod routes;
 use config::BackendConfig;
 pub use error::Error;
 use error::Result;
-use routes::router::Router;
+use routes::Router;
 use tower_service::Service;
+use tracing::subscriber::set_global_default;
+use tracing_error::ErrorLayer;
+use tracing_subscriber::filter::*;
+use tracing_subscriber::fmt;
+use tracing_subscriber::prelude::*;
+use tracing_subscriber::Registry;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let config = BackendConfig::load().await?;
-
     // init tracing (logs) and error handling (color_eyre)
     {
-        use tracing::subscriber::set_global_default;
-        use tracing_error::ErrorLayer;
-        use tracing_subscriber::filter::*;
-        use tracing_subscriber::fmt;
-        use tracing_subscriber::prelude::*;
-        use tracing_subscriber::Registry;
-
         let fmt_layer = fmt::layer().with_target(true).pretty();
 
         let lib_filter_layer = Targets::new()
@@ -59,17 +56,17 @@ async fn main() -> Result<()> {
         tracing::info!("Tracing setup complete.");
     }
 
+    let config = BackendConfig::load().await?;
+
     // this sets up the tls config
     let rustls_config = {
-        let cert_file_path = config.cert_file_path;
         let mut cert_reader = BufReader::new(
-            File::open(cert_file_path)
+            File::open(config.cert_file_path)
                 .map_err(|_| internal_error!("Certificate file not found."))?,
         );
 
-        let key_file_path = config.key_file_path;
         let mut key_reader = BufReader::new(
-            File::open(key_file_path).map_err(|_| internal_error!("Key file not found."))?,
+            File::open(config.key_file_path).map_err(|_| internal_error!("Key file not found."))?,
         );
 
         let key = PrivateKey(
@@ -80,7 +77,7 @@ async fn main() -> Result<()> {
                 .remove(0),
         );
 
-        let certs = certs(&mut cert_reader)
+        let cert = certs(&mut cert_reader)
             .map_err(|e| internal_error!("Failed to construct certs. {}", e))?
             .into_iter()
             .map(Certificate)
@@ -89,7 +86,7 @@ async fn main() -> Result<()> {
         let mut config = ServerConfig::builder()
             .with_safe_defaults()
             .with_no_client_auth()
-            .with_single_cert(certs, key)
+            .with_single_cert(cert, key)
             .map_err(|e| {
                 internal_error!(
                     "Invalid private key provided when building rustls config. Details: {}",
@@ -104,7 +101,35 @@ async fn main() -> Result<()> {
         Arc::new(config)
     };
 
-    // http to https redirect service
+    // used to create tcp listeners for http and https connections
+    async fn create_tcp_listener<'a>(
+        ip_address: &'a str,
+        port: &'a usize,
+        listenfd_idx: usize,
+    ) -> Result<TcpListener> {
+        let mut listenfd = ListenFd::from_env();
+        let tcp_listener = match listenfd.take_tcp_listener(listenfd_idx).unwrap_or_else(|_| {
+            panic_any(internal_error!("fd at position 0 was not an tcp listener"))
+        }) {
+            Some(tcp_listener) => TcpListener::from_std(tcp_listener).expect(""),
+            None => TcpListener::bind(format!("{}:{}", ip_address, port)).await.map_err(|_| {
+                internal_error!(
+                    "Failed to bind systemfd tcp listener to address using fallback: {:?}:{:?}",
+                    ip_address,
+                    port
+                )
+            })?,
+        };
+
+        tracing::info!(
+            "Listening to tcp connections on port {}",
+            tcp_listener.local_addr().expect("Failed to get address of tcp listener")
+        );
+
+        Ok(tcp_listener)
+    }
+
+    // axum http to https redirect service
     let ip_address = config.ip_address.to_string();
     tokio::spawn(async move {
         let redirect = {
@@ -112,6 +137,7 @@ async fn main() -> Result<()> {
             let https_port = config.https_port.to_string();
 
             move |Host(host): Host, uri: Uri| async move {
+                // this closure ensures that http is upgraded to https
                 let make_https = |host: String, uri: Uri| -> Result<Uri> {
                     let mut parts = uri.into_parts();
 
@@ -145,56 +171,35 @@ async fn main() -> Result<()> {
             }
         };
 
-        let mut listenfd = ListenFd::from_env();
-        let tcp_listener = match listenfd.take_tcp_listener(0).unwrap_or_else(|_| {
-            panic_any(internal_error!("fd at position 0 was not an tcp listener"))
-        }) {
-            Some(tcp_listener) => TcpListener::from_std(tcp_listener).expect(""),
-            None => TcpListener::bind(format!("{}:{}", &ip_address, &config.http_port))
-                .await
-                .unwrap_or_else(|_| {
-                    panic_any(internal_error!(
-                        "Failed to bind systemfd tcp listener to address using fallback: {:?}:{:?}",
-                        &ip_address,
-                        &config.http_port
-                    ))
-                }),
-        };
-        tracing::info!(
-            "Listening to http requests from {}",
-            tcp_listener.local_addr().expect("Failed to get address of tcp listener")
-        );
+        let tcp_listener =
+            create_tcp_listener(&ip_address, &config.http_port, 0).await.unwrap_or_else(|_| {
+                panic_any(internal_error!(
+                    "Failed to get tcp listener for http to https redirect service."
+                ))
+            });
+
         axum::serve(tcp_listener, redirect.into_make_service())
             .await
             .expect("Failed to serve http to https redirect service.");
     });
 
-    let mut listenfd = ListenFd::from_env();
-    let tcp_listener = match listenfd
-        .take_tcp_listener(1)
-        .unwrap_or_else(|_| panic_any(internal_error!("fd at position 1 was not an tcp listener")))
-    {
-        Some(tcp_listener) => TcpListener::from_std(tcp_listener).expect(""),
-        None => TcpListener::bind(format!("{}:{}", &config.ip_address, &config.https_port))
-            .await
-            .unwrap_or_else(|_| {
-                panic_any(color_eyre::eyre::eyre!(
-                    "Failed to bind systemfd tcp listener to adress using fallback: {:?}",
-                    config.ip_address
-                ))
-            }),
-    };
+    // main axum app
+    let tcp_listener =
+        create_tcp_listener(&config.ip_address, &config.https_port, 1).await.unwrap_or_else(|_| {
+            panic_any(internal_error!(
+                "Failed to get tcp listener for http to https redirect service."
+            ))
+        });
 
     let app_router = Router::new().with_routes();
 
-    // we bind this here since rustls_config doesnt implement clone and we don't
-    // want to rebuild it
     let tls_acceptor = TlsAcceptor::from(rustls_config);
     pin_mut!(tcp_listener);
     loop {
         let app_service = app_router.clone().into_inner();
         let tls_acceptor = tls_acceptor.clone();
 
+        // accept tls conns
         let (conn, addr) = tcp_listener.accept().await.map_err(|e| {
             internal_error!("Failed to accept incoming tcp connection. Details: {}", e)
         })?;
@@ -267,7 +272,7 @@ mod tests {
             name: String,
         }
 
-        let router = crate::routes::router::Router::new();
+        let router = crate::routes::Router::new();
         let router = router.into_inner().route(
             "/test",
             post(|JsonOrForm(payload): JsonOrForm<Payload>| async move {

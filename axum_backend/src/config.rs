@@ -9,8 +9,8 @@ use crate::internal_error;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct BackendConfig {
     pub ip_address: String,
-    pub http_port: u16,
-    pub https_port: u16,
+    pub http_port: usize,
+    pub https_port: usize,
     pub cert_file_path: PathBuf,
     pub key_file_path: PathBuf,
 }

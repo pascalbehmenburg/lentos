@@ -1,1 +1,2 @@
-pub(crate) mod router;
+mod router;
+pub use router::Router;

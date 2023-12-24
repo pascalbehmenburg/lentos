@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use axum::{
     response::{Html, IntoResponse},
     routing::get,

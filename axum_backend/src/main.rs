@@ -192,7 +192,7 @@ async fn main() -> Result<()> {
     let tls_acceptor = TlsAcceptor::from(rustls_config);
     pin_mut!(tcp_listener);
     loop {
-        let app_service = app_router.deref().clone();
+        let app_service = app_router.clone().into_inner();
         let tls_acceptor = tls_acceptor.clone();
 
         let (conn, addr) = tcp_listener.accept().await.map_err(|e| {
@@ -268,7 +268,7 @@ mod tests {
         }
 
         let router = crate::routes::router::Router::new();
-        let router = router.0.route(
+        let router = router.into_inner().route(
             "/test",
             post(|JsonOrForm(payload): JsonOrForm<Payload>| async move {
                 (StatusCode::OK, format!("We got data: {payload:?}"));

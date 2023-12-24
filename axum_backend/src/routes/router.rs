@@ -12,14 +12,6 @@ use crate::response_error;
 #[derive(Debug, Clone)]
 pub struct Router(axum::Router);
 
-impl Deref for Router {
-    type Target = axum::Router;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 impl Router {
     #[must_use]
     pub fn new() -> Self {
@@ -41,5 +33,9 @@ impl Router {
 
         self.0 = self.0.route("/", get(handler)).fallback(handler_404);
         self
+    }
+
+    pub fn into_inner(self) -> axum::Router {
+        self.0
     }
 }

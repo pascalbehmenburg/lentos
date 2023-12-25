@@ -40,11 +40,13 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use axum::{body::Body, http, routing::post};
     use tower::ServiceExt;
 
     use super::*;
-    use crate::routes::Router;
+    use crate::{config::BackendConfig, routes::Router};
 
     #[tokio::test]
     async fn test_json_or_form_extractor() {
@@ -53,7 +55,8 @@ mod tests {
             name: String,
         }
 
-        let router = Router::new();
+        let config = Arc::new(BackendConfig::load().await.unwrap());
+        let router = Router::new(config);
         let router = router.into_inner().route(
             "/test",
             post(|JsonOrForm(payload): JsonOrForm<Payload>| async move {

@@ -13,6 +13,7 @@ pub struct BackendConfig {
     pub https_port: usize,
     pub cert_file_path: PathBuf,
     pub key_file_path: PathBuf,
+    pub database_url: String,
 }
 
 impl Default for BackendConfig {
@@ -23,6 +24,7 @@ impl Default for BackendConfig {
             https_port: 8443,
             cert_file_path: PathBuf::from("cert.pem"),
             key_file_path: PathBuf::from("key.pem"),
+            database_url: "postgres://postgres:postgres@localhost:17937/lentserver".to_string(),
         }
     }
 }

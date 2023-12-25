@@ -1,14 +1,12 @@
 use std::{fs::File, io::BufReader, panic::panic_any, sync::Arc};
 
-use async_trait::async_trait;
 use axum::{
-    extract::{FromRequest, Host, Request},
+    extract::{Host, Request},
     handler::HandlerWithoutStateExt,
-    response::{IntoResponse, Redirect, Response},
-    Form, Json, RequestExt,
+    response::Redirect,
 };
 use futures_util::pin_mut;
-use hyper::{body::Incoming, header::CONTENT_TYPE, StatusCode, Uri};
+use hyper::{body::Incoming, Uri};
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use listenfd::ListenFd;
 use rustls_pemfile::{certs, pkcs8_private_keys};
@@ -20,6 +18,8 @@ use tokio_rustls::{
 
 mod config;
 mod error;
+mod repositories;
+mod request;
 mod routes;
 use config::BackendConfig;
 pub use error::Error;
@@ -51,22 +51,26 @@ async fn main() -> Result<()> {
 
         set_global_default(subscriber)
             .map_err(|_| internal_error!("Failed to set global tracing subscriber"))?;
+
         color_eyre::install()
             .map_err(|_| internal_error!("Failed to install color_eyre error handler."))?;
+
         tracing::info!("Tracing setup complete.");
     }
 
-    let config = BackendConfig::load().await?;
+    let backend_config = Arc::new(BackendConfig::load().await?);
+    let app_router = Router::new(backend_config.clone()).with_routes().await?;
 
     // this sets up the tls config
     let rustls_config = {
         let mut cert_reader = BufReader::new(
-            File::open(config.cert_file_path)
+            File::open(&backend_config.cert_file_path)
                 .map_err(|_| internal_error!("Certificate file not found."))?,
         );
 
         let mut key_reader = BufReader::new(
-            File::open(config.key_file_path).map_err(|_| internal_error!("Key file not found."))?,
+            File::open(&backend_config.key_file_path)
+                .map_err(|_| internal_error!("Key file not found."))?,
         );
 
         let key = PrivateKey(
@@ -129,13 +133,13 @@ async fn main() -> Result<()> {
         Ok(tcp_listener)
     }
 
+    let redirect_ip = backend_config.ip_address.clone();
+    let http_port = backend_config.http_port.to_string();
+    let https_port = backend_config.https_port.to_string();
+    let http_port_num = backend_config.http_port.clone();
     // axum http to https redirect service
-    let ip_address = config.ip_address.to_string();
     tokio::spawn(async move {
         let redirect = {
-            let http_port = config.http_port.to_string();
-            let https_port = config.https_port.to_string();
-
             move |Host(host): Host, uri: Uri| async move {
                 // this closure ensures that http is upgraded to https
                 let make_https = |host: String, uri: Uri| -> Result<Uri> {
@@ -170,9 +174,8 @@ async fn main() -> Result<()> {
                 }
             }
         };
-
         let tcp_listener =
-            create_tcp_listener(&ip_address, &config.http_port, 0).await.unwrap_or_else(|_| {
+            create_tcp_listener(&redirect_ip, &http_port_num, 0).await.unwrap_or_else(|_| {
                 panic_any(internal_error!(
                     "Failed to get tcp listener for http to https redirect service."
                 ))
@@ -185,13 +188,13 @@ async fn main() -> Result<()> {
 
     // main axum app
     let tcp_listener =
-        create_tcp_listener(&config.ip_address, &config.https_port, 1).await.unwrap_or_else(|_| {
-            panic_any(internal_error!(
-                "Failed to get tcp listener for http to https redirect service."
-            ))
-        });
-
-    let app_router = Router::new().with_routes();
+        create_tcp_listener(&backend_config.ip_address, &backend_config.https_port, 1)
+            .await
+            .unwrap_or_else(|_| {
+                panic_any(internal_error!(
+                    "Failed to get tcp listener for http to https redirect service."
+                ))
+            });
 
     let tls_acceptor = TlsAcceptor::from(rustls_config);
     pin_mut!(tcp_listener);
@@ -223,88 +226,5 @@ async fn main() -> Result<()> {
                 .await
                 .expect("Failed to serve connection.");
         });
-    }
-}
-
-struct JsonOrForm<T>(T);
-
-#[async_trait]
-impl<S, T> FromRequest<S> for JsonOrForm<T>
-where
-    S: Send + Sync,
-    Json<T>: FromRequest<()>,
-    Form<T>: FromRequest<()>,
-    T: 'static,
-{
-    type Rejection = Response;
-
-    async fn from_request(req: Request, _state: &S) -> Result<Self, Self::Rejection> {
-        let content_type_header = req.headers().get(CONTENT_TYPE);
-        let content_type = content_type_header.and_then(|value| value.to_str().ok());
-
-        if let Some(content_type) = content_type {
-            if content_type.starts_with(mime::APPLICATION_JSON.as_ref()) {
-                let Json(payload) = req.extract().await.map_err(IntoResponse::into_response)?;
-                return Ok(Self(payload));
-            }
-
-            if content_type.starts_with(mime::APPLICATION_WWW_FORM_URLENCODED.as_ref()) {
-                let Form(payload) = req.extract().await.map_err(IntoResponse::into_response)?;
-                return Ok(Self(payload));
-            }
-        }
-
-        Err(StatusCode::UNSUPPORTED_MEDIA_TYPE.into_response())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use axum::{body::Body, http, routing::post};
-    use tower::ServiceExt;
-
-    use super::*;
-
-    #[tokio::test]
-    async fn test_json_or_form_extractor() {
-        #[derive(Debug, serde::Serialize, serde::Deserialize)]
-        struct Payload {
-            name: String,
-        }
-
-        let router = crate::routes::Router::new();
-        let router = router.into_inner().route(
-            "/test",
-            post(|JsonOrForm(payload): JsonOrForm<Payload>| async move {
-                (StatusCode::OK, format!("We got data: {payload:?}"));
-            }),
-        );
-
-        let request = Request::builder()
-            .method(http::Method::POST)
-            .uri("/test")
-            .header(http::header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
-            .body(Body::from(
-                serde_json::to_string(&Payload { name: "MemeJson".to_string() }).unwrap(),
-            ))
-            .unwrap();
-
-        let response = router.clone().oneshot(request).await.unwrap();
-
-        println!("{:?}", response);
-        assert_eq!(response.status(), StatusCode::OK);
-
-        let request = Request::builder()
-            .method(http::Method::POST)
-            .uri("/test")
-            .header(http::header::CONTENT_TYPE, mime::APPLICATION_WWW_FORM_URLENCODED.as_ref())
-            .body(Body::from(
-                serde_urlencoded::to_string(Payload { name: "MemeForm".to_string() }).unwrap(),
-            ))
-            .unwrap();
-
-        let response = router.oneshot(request).await.unwrap();
-        println!("{:?}", response);
-        assert_eq!(response.status(), StatusCode::OK);
     }
 }

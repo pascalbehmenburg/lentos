@@ -52,6 +52,18 @@ impl IntoResponse for Error {
     }
 }
 
+impl From<String> for Error {
+    fn from(err: String) -> Self {
+        Error::InternalError(err)
+    }
+}
+
+impl From<sqlx::Error> for Error {
+    fn from(err: sqlx::Error) -> Self {
+        Error::InternalError(err.to_string())
+    }
+}
+
 // Use this macro to return an any error which should not be displayed in a
 // response
 #[macro_export]

@@ -57,6 +57,7 @@ listenfd = "1.0.1"
 tokio = { version = "1", features = ["full"] }
 futures-util = { version = "0.3", default-features = false }
 async-trait = "0.1.75"
+anyhow = "1.0.40"
 
 sqlx = { version = "0.7.1", default-features = false, features = [
     "runtime-tokio",
@@ -70,3 +71,14 @@ sqlx = { version = "0.7.1", default-features = false, features = [
 app_dirs2 = "2.5.5"
 toml = "0.8.8"
 toml_edit = { version = "0.21.0", features = ["serde"] }
+axum_session = { version = "0.11.1", features = [
+    "postgres-rustls",
+    "key-store",
+    "advanced",
+] }
+axum_session_auth = { version = "0.11.0", features = [
+    "postgres-rustls",
+    "key-store",
+    "advanced",
+] }
+derive_more = "0.99.17"

@@ -1,3 +1,5 @@
+#![feature(try_trait_v2)]
+#![feature(type_alias_impl_trait)]
 use std::{fs::File, io::BufReader, panic::panic_any, sync::Arc};
 
 use axum::{
@@ -18,7 +20,6 @@ use tokio_rustls::{
 
 mod config;
 mod error;
-mod repositories;
 mod request;
 mod routes;
 use config::BackendConfig;
@@ -59,7 +60,7 @@ async fn main() -> Result<()> {
     }
 
     let backend_config = Arc::new(BackendConfig::load().await?);
-    let app_router = Router::new(backend_config.clone()).with_routes().await?;
+    let app_router = Router::new(backend_config.clone()).await?;
 
     // this sets up the tls config
     let rustls_config = {
@@ -130,52 +131,42 @@ async fn main() -> Result<()> {
             tcp_listener.local_addr().expect("Failed to get address of tcp listener")
         );
 
-        Ok(tcp_listener)
+        tcp_listener.into()
     }
 
     let redirect_ip = backend_config.ip_address.clone();
     let http_port = backend_config.http_port.to_string();
     let https_port = backend_config.https_port.to_string();
-    let http_port_num = backend_config.http_port.clone();
+    let http_port_num = backend_config.http_port;
     // axum http to https redirect service
     tokio::spawn(async move {
         let redirect = {
             move |Host(host): Host, uri: Uri| async move {
-                // this closure ensures that http is upgraded to https
-                let make_https = |host: String, uri: Uri| -> Result<Uri> {
-                    let mut parts = uri.into_parts();
+                let mut parts = uri.into_parts();
 
-                    parts.scheme = Some(axum::http::uri::Scheme::HTTPS);
+                parts.scheme = Some(axum::http::uri::Scheme::HTTPS);
 
-                    if parts.path_and_query.is_none() {
-                        parts.path_and_query = Some("/".parse().unwrap());
-                    }
+                if parts.path_and_query.is_none() {
+                    parts.path_and_query = Some("/".parse().unwrap());
+                }
 
-                    let https_host = host.replace(&http_port, &https_port);
+                let https_host = host.replace(&http_port, &https_port);
 
-                    parts.authority = Some(https_host.parse().map_err(|e| {
-                        internal_error!(
-                            "Failed replacing the http URI host with https. Details: {}",
-                            e
-                        )
-                    })?);
+                parts.authority = Some(https_host.parse().map_err(|e| {
+                    internal_error!("Failed replacing the http URI host with https. Details: {}", e)
+                })?);
 
-                    Uri::from_parts(parts).map_err(|e| {
+                Uri::from_parts(parts)
+                    .map_err(|e| {
                         internal_error!("Failed to construct URI from parts. Details: {}", e)
                     })
-                };
-
-                match make_https(host, uri) {
-                    Ok(uri) => Ok(Redirect::permanent(&uri.to_string())),
-                    Err(error) => Err(internal_error!(
-                        "Failed to redirect from http to https. Details: {}",
-                        error
-                    )),
-                }
+                    .map(|uri| Redirect::permanent(&uri.to_string()))
             }
         };
-        let tcp_listener =
-            create_tcp_listener(&redirect_ip, &http_port_num, 0).await.unwrap_or_else(|_| {
+        let tcp_listener = create_tcp_listener(&redirect_ip, &http_port_num, 0)
+            .await
+            .into_inner()
+            .unwrap_or_else(|_| {
                 panic_any(internal_error!(
                     "Failed to get tcp listener for http to https redirect service."
                 ))
@@ -190,6 +181,7 @@ async fn main() -> Result<()> {
     let tcp_listener =
         create_tcp_listener(&backend_config.ip_address, &backend_config.https_port, 1)
             .await
+            .into_inner()
             .unwrap_or_else(|_| {
                 panic_any(internal_error!(
                     "Failed to get tcp listener for http to https redirect service."

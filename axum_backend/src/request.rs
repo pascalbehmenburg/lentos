@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use axum::{
+    body::Body,
     extract::{FromRequest, Request},
     response::{IntoResponse, Response},
     Form, Json, RequestExt,
@@ -18,7 +19,7 @@ where
 {
     type Rejection = Response;
 
-    async fn from_request(req: Request, _state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request(req: Request<Body>, _state: &S) -> Result<Self, Self::Rejection> {
         let content_type_header = req.headers().get(CONTENT_TYPE);
         let content_type = content_type_header.and_then(|value| value.to_str().ok());
 
@@ -55,8 +56,8 @@ mod tests {
             name: String,
         }
 
-        let config = Arc::new(BackendConfig::load().await.unwrap());
-        let router = Router::new(config);
+        let config = Arc::new(BackendConfig::load().await.into_inner().unwrap());
+        let router = Router::new(config).await.into_inner().unwrap();
         let router = router.into_inner().route(
             "/test",
             post(|JsonOrForm(payload): JsonOrForm<Payload>| async move {

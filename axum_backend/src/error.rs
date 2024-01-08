@@ -1,10 +1,14 @@
+use std::{
+    convert::Infallible,
+    ops::{FromResidual, Try},
+    process::{ExitCode, Termination},
+};
+
 use axum::{
     response::{IntoResponse, Response},
     Json,
 };
 use hyper::StatusCode;
-
-pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -19,6 +23,15 @@ pub enum Error {
     // fallback error
     #[error(transparent)]
     Other(#[from] color_eyre::eyre::Error),
+}
+
+#[derive(Clone, Debug)]
+pub struct Result<T, E = Error>(pub std::result::Result<T, E>);
+
+impl<T> Result<T> {
+    pub fn into_inner(self) -> std::result::Result<T, Error> {
+        self.0
+    }
 }
 
 // We use a JSON response so that the frontend may re-use ResponseError
@@ -61,6 +74,76 @@ impl From<String> for Error {
 impl From<sqlx::Error> for Error {
     fn from(err: sqlx::Error) -> Self {
         Error::InternalError(err.to_string())
+    }
+}
+
+impl<T: IntoResponse, E: IntoResponse> IntoResponse for Result<T, E> {
+    fn into_response(self) -> Response {
+        self.0.into_response()
+    }
+}
+
+impl<T, E> FromResidual<std::result::Result<Infallible, E>> for Result<T>
+where
+    E: Into<Error>,
+{
+    fn from_residual(residual: std::result::Result<Infallible, E>) -> Self {
+        match residual {
+            Ok(_) => unreachable!(),
+            Err(error) => Self(Err(error.into())),
+        }
+    }
+}
+
+impl<T> Try for Result<T> {
+    type Output = T;
+    type Residual = std::result::Result<Infallible, Error>;
+
+    fn from_output(output: Self::Output) -> Self {
+        Self(Ok(output))
+    }
+
+    fn branch(self) -> std::ops::ControlFlow<Self::Residual, Self::Output> {
+        match self.0 {
+            Ok(output) => std::ops::ControlFlow::Continue(output),
+            Err(error) => std::ops::ControlFlow::Break(Err(error)),
+        }
+    }
+}
+
+impl<T> Termination for Result<T> {
+    fn report(self) -> ExitCode {
+        match self.0 {
+            Ok(_) => ExitCode::SUCCESS,
+            Err(error) => {
+                tracing::error!("Program exit with error: {}", error);
+                ExitCode::FAILURE
+            }
+        }
+    }
+}
+
+impl<T> From<T> for Result<T> {
+    fn from(t: T) -> Self {
+        Self(Ok(t))
+    }
+}
+
+impl<T, E: Into<Error>> From<std::result::Result<T, E>> for Result<T> {
+    fn from(res: std::result::Result<T, E>) -> Self {
+        match res {
+            Ok(t) => Self(Ok(t)),
+            Err(e) => Self(Err(e.into())),
+        }
+    }
+}
+
+impl<T> Into<std::result::Result<T, anyhow::Error>> for Result<T> {
+    fn into(self) -> std::result::Result<T, anyhow::Error> {
+        match self.0 {
+            Ok(t) => Ok(t),
+            Err(e) => Err(e.into()),
+        }
     }
 }
 

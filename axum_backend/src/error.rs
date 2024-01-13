@@ -138,15 +138,6 @@ impl<T, E: Into<Error>> From<std::result::Result<T, E>> for Result<T> {
     }
 }
 
-impl<T> Into<std::result::Result<T, anyhow::Error>> for Result<T> {
-    fn into(self) -> std::result::Result<T, anyhow::Error> {
-        match self.0 {
-            Ok(t) => Ok(t),
-            Err(e) => Err(e.into()),
-        }
-    }
-}
-
 // Use this macro to return an any error which should not be displayed in a
 // response
 #[macro_export]

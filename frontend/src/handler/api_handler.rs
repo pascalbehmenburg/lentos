@@ -6,7 +6,7 @@ use serde::Serialize;
 
 use crate::handler::cookie_handler::CookieHandler;
 
-pub(crate) const BASE_URL: &str = "https://localhost:8443/api/v1";
+pub(crate) const BASE_URL: &str = "https://127.0.0.1:8443";
 
 #[derive(Clone)]
 pub struct ApiHandler {
@@ -25,8 +25,9 @@ impl ApiHandler {
             .cookie_store(true)
             .cookie_provider(cookie_store)
             .brotli(true)
-            .http2_prior_knowledge()
             .https_only(true)
+            .http2_prior_knowledge()
+            .http2_adaptive_window(true)
             .use_rustls_tls()
             .add_root_certificate(cert)
             .build()
@@ -45,18 +46,9 @@ impl ApiHandler {
         self.client.get(url).send().await.expect("Failed to send request")
     }
 
-    pub async fn post<T: Serialize>(
-        &self,
-        rel_path: &str,
-        json_payload: &T,
-    ) -> Response {
+    pub async fn post<T: Serialize>(&self, rel_path: &str, json_payload: &T) -> Response {
         let url = format!("{BASE_URL}{rel_path}");
-        self.client
-            .post(url)
-            .json(json_payload)
-            .send()
-            .await
-            .expect("Failed to send request")
+        self.client.post(url).json(json_payload).send().await.expect("Failed to send request")
     }
 }
 

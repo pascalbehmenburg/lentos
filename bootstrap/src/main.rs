@@ -43,10 +43,8 @@ fn install_tracing() {
         .with_target("hyper", LevelFilter::ERROR)
         .with_default(LevelFilter::DEBUG);
 
-    let subscriber = Registry::default()
-        .with(lib_filter_layer)
-        .with(fmt_layer)
-        .with(ErrorLayer::default());
+    let subscriber =
+        Registry::default().with(lib_filter_layer).with(fmt_layer).with(ErrorLayer::default());
 
     set_global_default(subscriber).expect("Failed to set tracing subscriber");
 }
@@ -55,8 +53,7 @@ fn install_tracing() {
 async fn main() -> std::io::Result<()> {
     install_tracing();
     color_eyre::install().unwrap();
-    let pool =
-        Pool::<Postgres>::connect(dotenv!("DATABASE_URL")).await.unwrap();
+    let pool = Pool::<Postgres>::connect(dotenv!("DATABASE_URL")).await.unwrap();
 
     HttpServer::new(move || {
         let todo_repository = todo::PostgresTodoRepository::new(pool.clone());
@@ -75,9 +72,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(Compat::new(
                 IdentityMiddleware::builder()
                     //.visit_deadline(Some(Duration::from_secs(config.cookie_timeout)))
-                    .logout_behaviour(
-                        actix_identity::config::LogoutBehaviour::PurgeSession,
-                    )
+                    .logout_behaviour(actix_identity::config::LogoutBehaviour::PurgeSession)
                     .build(),
             ))
             .wrap(Compat::new(
@@ -103,28 +98,20 @@ async fn main() -> std::io::Result<()> {
 
 fn rustls_setup() -> ServerConfig {
     // init server config builder with safe defaults
-    let config =
-        ServerConfig::builder().with_safe_defaults().with_no_client_auth();
+    let config = ServerConfig::builder().with_safe_defaults().with_no_client_auth();
 
     let cert_path = dotenv!("CERT_PATH");
     let key_path = dotenv!("KEY_PATH");
 
     // load TLS key/cert files
-    let cert_file =
-        &mut BufReader::new(std::fs::File::open(cert_path).unwrap());
+    let cert_file = &mut BufReader::new(std::fs::File::open(cert_path).unwrap());
     let key_file = &mut BufReader::new(std::fs::File::open(key_path).unwrap());
 
     // convert files to key/cert objects
-    let cert_chain = rustls_pemfile::certs(cert_file)
-        .unwrap()
-        .into_iter()
-        .map(Certificate)
-        .collect();
-    let mut keys: Vec<PrivateKey> = pkcs8_private_keys(key_file)
-        .unwrap()
-        .into_iter()
-        .map(PrivateKey)
-        .collect();
+    let cert_chain =
+        rustls_pemfile::certs(cert_file).unwrap().into_iter().map(Certificate).collect();
+    let mut keys: Vec<PrivateKey> =
+        pkcs8_private_keys(key_file).unwrap().into_iter().map(PrivateKey).collect();
 
     config.with_single_cert(cert_chain, keys.remove(0)).unwrap()
 }

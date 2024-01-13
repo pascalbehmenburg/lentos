@@ -1,19 +1,20 @@
-mod user;
+pub(crate) mod user;
 use std::sync::Arc;
 
-use axum::{response::IntoResponse, routing::get, Extension};
-use axum_session::{
-    Key, SameSite, SessionConfig, SessionLayer, SessionMode, SessionPgPool, SessionStore,
+use axum::{
+    extract::Request,
+    response::IntoResponse,
+    routing::{get, post},
+    Extension,
 };
-use axum_session_auth::{AuthConfig, AuthSessionLayer};
+use axum_login::login_required;
 use hyper::StatusCode;
 use sqlx::{PgPool, Pool, Postgres};
 use tower_http::compression::CompressionLayer;
+use tower_sessions::{PostgresStore, SessionManagerLayer};
 
 use crate::{
-    config::BackendConfig,
-    response_error,
-    routes::user::{PostgresUserRepository, User},
+    config::BackendConfig, repositories::pg_user_repo::PostgresUserRepository, response_error,
 };
 use crate::{error::Result, internal_error};
 
@@ -24,14 +25,17 @@ pub struct Router {
 
 impl Router {
     pub async fn new(backend_config: Arc<BackendConfig>) -> Result<Self> {
-        async fn handler_404() -> impl IntoResponse {
-            response_error!(StatusCode::NOT_FOUND, "Error 404: Not found")
+        // log the request method and path
+        async fn handler_404(request: Request) -> impl IntoResponse {
+            tracing::debug!("{request:?}");
+            StatusCode::NOT_FOUND
         }
 
         async fn handler_index() -> impl IntoResponse {
             "Hello World!"
         }
 
+        // setup database
         let postgres_pool =
             Pool::<Postgres>::connect(&backend_config.database_url).await.map_err(|e| {
                 internal_error!(
@@ -43,35 +47,33 @@ impl Router {
 
         let user_repo = Arc::new(PostgresUserRepository::new(postgres_pool.clone()));
 
+        // setup sessions
+        let session_store = PostgresStore::new(postgres_pool.clone());
+
+        session_store
+            .migrate()
+            .await
+            .map_err(|e| internal_error!("Failed to perform session migrations. Details: {}", e))?;
+
+        // let deletion_task = tokio::task::spawn(loop {
+        //     session_store.clone().delete_expired().await.unwrap_or_else(|e| {
+        //         tracing::error!("Failed to delete expired sessions. Details: {}", e);
+        //     });
+        //     tokio::time::sleep(tokio::time::Duration::from_secs(5 * 60)).await;
+        // });
+
+        // deletion_task.await?;
+
+        // compose router
         let axum_router = axum::Router::new()
             .layer(CompressionLayer::new().br(true).compress_when(|_, _, _: &_, _: &_| true))
             .layer(tower_http::trace::TraceLayer::new_for_http())
             .layer(Extension(user_repo.clone()))
-            .layer(SessionLayer::new(
-                SessionStore::<SessionPgPool>::new(
-                    Some(postgres_pool.clone().into()),
-                    SessionConfig::default()
-                        .with_table_name("sessions")
-                        .with_key(Key::from(backend_config.session_key.as_bytes()))
-                        .with_database_key(Key::generate())
-                        .with_http_only(true)
-                        .with_secure(true)
-                        .with_security_mode(axum_session::SecurityMode::PerSession)
-                        .with_mode(SessionMode::Persistent)
-                        .with_cookie_path("/")
-                        .with_cookie_same_site(SameSite::Strict)
-                        .with_bloom_filter(true),
-                )
-                .await
-                .map_err(|e| internal_error!("Failed to create session store. Details: {}", e))?,
-            ))
-            .layer(
-                AuthSessionLayer::<User, i64, SessionPgPool, PgPool>::new(Some(
-                    postgres_pool.clone(),
-                ))
-                .with_config(AuthConfig::<i64>::default().set_cache(true)),
-            )
+            .layer(SessionManagerLayer::new(session_store))
             .route("/", get(handler_index))
+            .route("/users", get(user::get::<PostgresUserRepository>))
+            .route_layer(login_required!(PostgresUserRepository, login_url = "/login"))
+            .route("/login", post(user::login::<PostgresUserRepository>))
             .fallback(handler_404);
         Self { axum_router }.into()
     }

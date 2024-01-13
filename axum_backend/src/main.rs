@@ -20,6 +20,7 @@ use tokio_rustls::{
 
 mod config;
 mod error;
+mod repositories;
 mod request;
 mod routes;
 use config::BackendConfig;
@@ -126,10 +127,7 @@ async fn main() -> Result<()> {
             })?,
         };
 
-        tracing::info!(
-            "Listening to tcp connections on port {}",
-            tcp_listener.local_addr().expect("Failed to get address of tcp listener")
-        );
+        tracing::info!("Listening to tcp connections on port {:?}", tcp_listener);
 
         tcp_listener.into()
     }
@@ -166,11 +164,7 @@ async fn main() -> Result<()> {
         let tcp_listener = create_tcp_listener(&redirect_ip, &http_port_num, 0)
             .await
             .into_inner()
-            .unwrap_or_else(|_| {
-                panic_any(internal_error!(
-                    "Failed to get tcp listener for http to https redirect service."
-                ))
-            });
+            .expect("Failed to get tcp listener for http to https redirect service.");
 
         axum::serve(tcp_listener, redirect.into_make_service())
             .await

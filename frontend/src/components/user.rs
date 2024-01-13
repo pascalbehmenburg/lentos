@@ -1,7 +1,18 @@
 use dioxus::prelude::*;
-use shared::models::user::User;
+use serde::{Deserialize, Serialize};
 
 use crate::handler::api_handler::ApiHandler;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UserView {
+    pub id: i64,
+    pub anonymous: bool,
+    pub name: String,
+    pub email: String,
+    pub password: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
 
 #[component]
 pub(crate) fn User(cx: Scope) -> Element {
@@ -11,7 +22,7 @@ pub(crate) fn User(cx: Scope) -> Element {
         to_owned![api_handler];
         async move {
             let response = api_handler.get("/users").await;
-            response.json::<User>().await
+            response.json::<UserView>().await
         }
     });
 

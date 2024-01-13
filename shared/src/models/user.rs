@@ -7,6 +7,16 @@ pub struct CreateUser {
     pub password: String,
 }
 
+impl CreateUser {
+    pub fn new(
+        name: impl Into<String>,
+        email: impl Into<String>,
+        password: impl Into<String>,
+    ) -> Self {
+        Self { name: name.into(), email: email.into(), password: password.into() }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
 pub struct UpdateUser {
     pub name: Option<String>,

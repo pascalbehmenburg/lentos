@@ -106,8 +106,7 @@ fn main() {
         .with_focused(false)
         .with_menu(menu_bar); // unsupported on ios / android
 
-    let data_directory =
-        app_root(AppDataType::UserConfig, &crate::handler::APP_INFO).unwrap();
+    let data_directory = app_root(AppDataType::UserConfig, &crate::handler::APP_INFO).unwrap();
 
     const INDEX_HTML: &str = r#"
         <!DOCTYPE html>
@@ -229,41 +228,35 @@ fn ErrorLayer(cx: Scope) -> Element {
     let navigator = use_navigator(cx).clone();
     let popup_handler: &Coroutine<Popup> = use_coroutine_handle(cx).unwrap();
 
-    use_coroutine(
-        cx,
-        |mut receiver: UnboundedReceiver<crate::error::Error>| {
-            to_owned![navigator, popup_handler];
-            async move {
-                while let Some(error) = receiver.next().await {
-                    tracing::error!("{:?}", error);
-                    popup_handler.send(Popup::Push(error.1.to_string()));
+    use_coroutine(cx, |mut receiver: UnboundedReceiver<crate::error::Error>| {
+        to_owned![navigator, popup_handler];
+        async move {
+            while let Some(error) = receiver.next().await {
+                tracing::error!("{:?}", error);
+                popup_handler.send(Popup::Push(error.1.to_string()));
 
-                    let redirect = match error.0 {
-                        reqwest::StatusCode::UNAUTHORIZED => {
-                            navigator.push(Route::SignIn {})
-                        }
-                        _ => None,
-                    }
-                    .map(|e| {
-                        tracing::error!("{:?}", e);
-                        "Please log in first.".to_string()
-                    });
+                let redirect = match error.0 {
+                    reqwest::StatusCode::UNAUTHORIZED => navigator.push(Route::SignIn {}),
+                    _ => None,
+                }
+                .map(|e| {
+                    tracing::error!("{:?}", e);
+                    "Please log in first.".to_string()
+                });
 
-                    if let Some(redirect_error_msg) = redirect {
-                        popup_handler.send(Popup::Push(redirect_error_msg));
-                    }
+                if let Some(redirect_error_msg) = redirect {
+                    popup_handler.send(Popup::Push(redirect_error_msg));
                 }
             }
-        },
-    );
+        }
+    });
 
     render! { Outlet::<Route> {} }
 }
 
 #[component]
 fn AuthCheck(cx: Scope) -> Element {
-    let api_handler: &ApiHandler =
-        use_context(cx).expect("Failed to receive api handler.");
+    let api_handler: &ApiHandler = use_context(cx).expect("Failed to receive api handler.");
     let navigator = use_navigator(cx);
     let message_handler: &Coroutine<Popup> = use_coroutine_handle(cx).unwrap();
 
@@ -274,18 +267,13 @@ fn AuthCheck(cx: Scope) -> Element {
 
             if response.status().is_success() {
                 let user = response
-                    .json::<shared::models::user::User>()
+                    .json::<crate::components::user::UserView>()
                     .await
                     .expect("Unable to read user data after login.");
-                message_handler.send(Popup::Push(format!(
-                    "👋 Welcome back, {}!",
-                    user.name
-                )));
+                message_handler.send(Popup::Push(format!("👋 Welcome back, {}!", user.name)));
                 navigator.replace(Route::TodoList {});
-            } else if response.status() == StatusCode::UNAUTHORIZED {
-                navigator.replace(Route::SignIn {});
             } else {
-                panic!("The backend server seems to be unresponsive.",);
+                navigator.replace(Route::SignIn {});
             }
         }
     });

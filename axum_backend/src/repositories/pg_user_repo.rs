@@ -1,11 +1,9 @@
-use argon2::{Argon2, PasswordHash, PasswordVerifier};
-use async_trait::async_trait;
-use axum_login::{AuthnBackend, UserId};
 use hyper::StatusCode;
-use shared::models::user::{CreateUser, SignInUser, UpdateUser};
+use crate::routes::user::User;
+use shared::models::user::{CreateUser, UpdateUser};
 
 use super::UserRepository;
-use crate::{error::Result, internal_error, response_error, routes::User};
+use crate::{error::Result, internal_error, response_error};
 
 #[derive(Debug, Clone)]
 pub(crate) struct PostgresUserRepository {
@@ -47,7 +45,7 @@ impl PostgresUserRepository {
         if !Self::get_by_id(&self, &1).await.0.is_ok() {
             crate::routes::user::register(
                 CreateUser::new("Guest", "guest@guest.com", "Guest"),
-                self.clone(),
+                self
             );
         } else {
         }

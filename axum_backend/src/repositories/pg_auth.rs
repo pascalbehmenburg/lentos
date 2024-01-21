@@ -5,7 +5,8 @@ use hyper::StatusCode;
 use shared::models::user::SignInUser;
 
 use super::{pg_user_repo::PostgresUserRepository, UserRepository};
-use crate::{internal_error, response_error, routes::User};
+use crate::{internal_error, response_error};
+use crate::routes::user::User;
 
 pub type AuthSession = axum_login::AuthSession<PostgresUserRepository>;
 

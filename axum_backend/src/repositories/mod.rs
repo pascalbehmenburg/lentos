@@ -2,9 +2,8 @@ pub(crate) mod pg_auth;
 pub(crate) mod pg_user_repo;
 
 use shared::models::user::{CreateUser, UpdateUser};
-
+use crate::routes::user::User;
 use crate::error::Result;
-use crate::routes::User;
 
 pub(crate) trait UserRepository: Send + Sync + 'static {
     async fn get_by_email(&self, email: &str) -> Result<User>;
